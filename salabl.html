@@ -4,47 +4,29 @@
 <meta charset="UTF-8">
 <title>Salas - Batalha Naval</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="style.css">
 <style>
-body{
-  background:#020202;
-  color:#fff;
-  font-family:Arial, sans-serif;
-  margin:0;
-  padding:20px;
-}
-h2{text-align:center; margin-bottom:20px;}
-.sala{
-  background:#111;
-  padding:15px;
-  border-radius:8px;
-  margin-bottom:15px;
-}
-.sala div{ margin-bottom:5px; }
-button{
-  padding:10px;
-  border:none;
-  border-radius:5px;
-  background:#0af;
-  color:#fff;
-  font-weight:bold;
-  cursor:pointer;
-}
-button:disabled{
-  background:#555;
-  cursor:not-allowed;
-}
+.topo{display:flex;justify-content:space-between;margin-bottom:20px;}
+.sala{background:#111;padding:15px;border-radius:8px;margin-bottom:15px;}
+.sala div{margin-bottom:5px;}
+button{padding:10px;border:none;border-radius:5px;background:#0af;color:#fff;font-weight:bold;cursor:pointer;}
+button:disabled{background:#555;cursor:not-allowed;}
 </style>
 </head>
 <body>
 
-<h2>Escolha sua Sala</h2>
+<div class="topo">
+  <button onclick="window.location.href='rank.html'">Rank</button>
+  <h2>Escolha sua Sala</h2>
+  <div></div>
+</div>
 
 <div id="salas"></div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getDatabase, ref, onValue, get, set, update } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getDatabase, ref, onValue, get, set, update, remove } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBxq1jjSig-yW0kmtR1d_WBYCcc7Ysjz00",
@@ -58,12 +40,11 @@ const auth = getAuth(app);
 const db = getDatabase(app);
 
 const salasDiv = document.getElementById("salas");
-
 let usuario;
 
-onAuthStateChanged(auth,user=>{
-  if(!user) return window.location.href="login.html";
-  usuario = user;
+onAuthStateChanged(auth, user=>{
+  if(!user) window.location.href="login.html";
+  usuario=user;
   carregarSalas();
 });
 
@@ -75,14 +56,9 @@ function carregarSalas(){
 
 function criarSala(salaId){
   const salaRef = ref(db, `salas/${salaId}`);
-  
-  // Cria sala no Firebase se não existir
   get(salaRef).then(snap=>{
     if(!snap.exists()){
-      set(salaRef,{
-        players:{},
-        iniciada:false
-      });
+      set(salaRef,{players:{},ready:{},iniciada:false});
     }
   });
 
@@ -103,23 +79,42 @@ function criarSala(salaId){
   div.appendChild(p2);
 
   const btn = document.createElement("button");
-  btn.textContent="Entrar / Iniciar";
+  btn.textContent="Entrar";
   div.appendChild(btn);
 
-  btn.onclick=()=>entrarSala(salaId);
-  
+  btn.onclick = () => entrarSala(salaId);
   salasDiv.appendChild(div);
 
-  // Atualiza jogadores em tempo real
-  onValue(salaRef,snap=>{
+  // Atualiza jogadores e botão em tempo real
+  onValue(salaRef, snap=>{
     const dados = snap.val();
     const players = Object.values(dados.players||{});
-    p1.textContent="Player 1: "+(players[0]?.nome || "...");
-    p2.textContent="Player 2: "+(players[1]?.nome || "...");
-    btn.disabled = (players.length>=2 && !dados.players[usuario.uid]);
-    if(dados.iniciada){
-      btn.disabled = true;
+    p1.textContent="Player 1: "+(players[0]?.nome||"...");
+    p2.textContent="Player 2: "+(players[1]?.nome||"...");
+    
+    btn.disabled = dados.iniciada || (players.length>=2 && !dados.players[usuario.uid]);
+
+    // Se os 2 entraram e estão prontos, habilita iniciar
+    if(dados.ready && Object.keys(dados.ready||{}).length===2 && !dados.iniciada){
+      const iniciarBtn = document.createElement("button");
+      iniciarBtn.textContent="Iniciar Partida";
+      iniciarBtn.onclick = async ()=>{
+        await update(ref(db, `salas/${salaId}`), {iniciada:true});
+        window.location.href=`jogobl.html?sala=${salaId}`;
+      };
+      if(!div.querySelector(".iniciar")){ 
+        iniciarBtn.className="iniciar"; 
+        div.appendChild(iniciarBtn);
+      }
     }
+  });
+
+  // Remove jogador se fechar aba/janela
+  window.addEventListener("beforeunload", async()=>{
+    const playerRef = ref(db, `salas/${salaId}/players/${usuario.uid}`);
+    const readyRef = ref(db, `salas/${salaId}/ready/${usuario.uid}`);
+    await remove(playerRef);
+    await remove(readyRef);
   });
 }
 
@@ -129,28 +124,14 @@ async function entrarSala(salaId){
   const sala = snap.val();
 
   if(Object.keys(sala.players||{}).length<2 || sala.players[usuario.uid]){
-    // Adiciona o jogador se não estiver
     await set(ref(db, `salas/${salaId}/players/${usuario.uid}`),{
-      nome: usuario.displayName || usuario.email
+      nome: usuario.displayName||usuario.email
     });
-    alert("Você entrou na sala! Clique Iniciar quando ambos estiverem prontos.");
-    
-    // Pergunta se deseja iniciar
-    if(confirm("Deseja iniciar a partida?")){
-      await set(ref(db, `salas/${salaId}/ready/${usuario.uid}`), true);
-      
-      // Checa se ambos confirmaram
-      const readySnap = await get(ref(db, `salas/${salaId}/ready`));
-      if(Object.keys(readySnap.val()||{}).length===2){
-        await update(ref(db, `salas/${salaId}`), {iniciada:true});
-        window.location.href=`jogo.html?sala=${salaId}`;
-      }
-    }
-  }else{
+    await set(ref(db, `salas/${salaId}/ready/${usuario.uid}`), true);
+  } else {
     alert("Sala cheia!");
   }
 }
 </script>
-
 </body>
 </html>

@@ -2,59 +2,14 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Rank - Batalha Naval</title>
+<title>Rank Global - Batalha Naval</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<style>
-body{
-  background:#020202;
-  color:#fff;
-  font-family:Arial, sans-serif;
-  margin:0;
-  padding:20px;
-  text-align:center;
-}
-
-h2{
-  margin-bottom:20px;
-  color:#0af;
-}
-
-table{
-  width:100%;
-  max-width:400px;
-  margin:0 auto 20px;
-  border-collapse:collapse;
-}
-
-th, td{
-  padding:10px;
-  border-bottom:1px solid #444;
-  text-align:left;
-}
-
-th{
-  color:#0af;
-}
-
-button{
-  padding:12px 20px;
-  border:none;
-  border-radius:6px;
-  background:#0af;
-  color:#000;
-  font-weight:bold;
-  cursor:pointer;
-  margin-top:10px;
-}
-</style>
+<link rel="stylesheet" href="style.css">
 </head>
-
 <body>
 
-<h2>🏆 Rank Global</h2>
-
-<table id="rankTable">
+<h2>RANK GLOBAL</h2>
+<table>
   <thead>
     <tr>
       <th>Nome</th>
@@ -62,17 +17,14 @@ button{
       <th>Vitórias</th>
     </tr>
   </thead>
-  <tbody>
-    <tr><td colspan="3">Carregando...</td></tr>
-  </tbody>
+  <tbody id="rankBody"></tbody>
 </table>
-
-<button onclick="voltar()">⬅️ Voltar</button>
+<button onclick="window.location.href='salabl.html'">SALAS</button>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBxq1jjSig-yW0kmtR1d_WBYCcc7Ysjz00",
@@ -82,45 +34,26 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
 const db = getDatabase(app);
-
-const rankTable = document.getElementById("rankTable").querySelector("tbody");
+const auth = getAuth(app);
 
 onAuthStateChanged(auth, user => {
-  if(!user) return window.location.href="login.html";
-  carregarRank();
+  if(!user) window.location.href="login.html";
 });
 
-function carregarRank(){
-  const usuariosRef = ref(db, "usuarios");
-  onValue(usuariosRef, snap => {
-    const dados = snap.val();
-    if(!dados) return;
+const rankBody=document.getElementById("rankBody");
+const usuariosRef=ref(db,"usuarios");
 
-    const usuariosArray = Object.values(dados);
-    
-    // Ordena por pontos decrescente
-    usuariosArray.sort((a,b)=> (b.pontos || 0) - (a.pontos || 0));
-
-    rankTable.innerHTML = "";
-    usuariosArray.forEach(u=>{
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${u.nome}</td>
-        <td>${u.pontos || 0}</td>
-        <td>${u.vitorias || 0}</td>
-      `;
-      rankTable.appendChild(tr);
-    });
+onValue(usuariosRef, snapshot=>{
+  const usuarios=snapshot.val()||{};
+  const lista=Object.values(usuarios).sort((a,b)=>b.pontos-a.pontos);
+  rankBody.innerHTML="";
+  lista.forEach(u=>{
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td>${u.nome}</td><td>${u.pontos||0}</td><td>${u.vitorias||0}</td>`;
+    rankBody.appendChild(tr);
   });
-}
-
-function voltar(){
-  // Retorna pra página de salas
-  window.location.href="salas.html";
-}
+});
 </script>
-
 </body>
 </html>

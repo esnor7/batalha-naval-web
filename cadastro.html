@@ -4,57 +4,17 @@
 <meta charset="UTF-8">
 <title>Cadastro - Batalha Naval</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<style>
-body{
-  background:#020202;
-  color:#fff;
-  font-family:Arial;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  height:100vh;
-}
-.box{
-  background:#111;
-  padding:25px;
-  border-radius:10px;
-  width:100%;
-  max-width:320px;
-}
-input,button{
-  width:100%;
-  padding:12px;
-  margin-top:10px;
-  border-radius:6px;
-  border:none;
-}
-button{
-  background:#0af;
-  font-weight:bold;
-  cursor:pointer;
-}
-a{
-  color:#0af;
-  text-decoration:none;
-}
-p{ text-align:center; margin-top:10px; }
-</style>
+<link rel="stylesheet" href="style.css">
 </head>
-
 <body>
 
 <div class="box">
   <h2>Cadastro</h2>
-
   <input type="text" id="nome" placeholder="Nome de usuário">
   <input type="email" id="email" placeholder="E-mail">
   <input type="password" id="senha" placeholder="Senha (mín. 6)">
-
   <button onclick="cadastrar()">Criar Conta</button>
-
-  <p>Já tem conta?<br>
-  <a href="login.html">Entrar</a></p>
+  <p>Já tem conta?<br><a href="login.html">Entrar</a></p>
 </div>
 
 <script type="module">
@@ -74,28 +34,21 @@ const auth = getAuth(app);
 const db = getDatabase(app);
 
 window.cadastrar = () => {
-  const nome = nome.value.trim();
-  const email = email.value.trim();
-  const senha = senha.value;
+  const nomeVal = nome.value.trim();
+  const emailVal = email.value.trim();
+  const senhaVal = senha.value;
 
-  if(!nome) return alert("Digite um nome");
-  if(senha.length < 6) return alert("Senha mínima de 6 caracteres");
+  if(!nomeVal) return alert("Digite um nome");
+  if(senhaVal.length < 6) return alert("Senha mínima de 6 caracteres");
 
-  createUserWithEmailAndPassword(auth, email, senha)
+  createUserWithEmailAndPassword(auth, emailVal, senhaVal)
     .then(res => {
       const uid = res.user.uid;
-
-      set(ref(db, "usuarios/" + uid), {
-        nome,
-        pontos: 0,
-        vitorias: 0
-      });
-
+      set(ref(db, `usuarios/${uid}`), {nome:nomeVal,pontos:0,vitorias:0});
       window.location.href = "login.html";
     })
     .catch(err => alert(err.message));
 };
 </script>
-
 </body>
 </html>

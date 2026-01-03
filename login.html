@@ -4,56 +4,16 @@
 <meta charset="UTF-8">
 <title>Login - Batalha Naval</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<style>
-body{
-  background:#020202;
-  color:#fff;
-  font-family:Arial;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  height:100vh;
-}
-.box{
-  background:#111;
-  padding:25px;
-  border-radius:10px;
-  width:100%;
-  max-width:320px;
-}
-input,button{
-  width:100%;
-  padding:12px;
-  margin-top:10px;
-  border-radius:6px;
-  border:none;
-}
-button{
-  background:#0af;
-  font-weight:bold;
-  cursor:pointer;
-}
-a{
-  color:#0af;
-  text-decoration:none;
-}
-p{ text-align:center; margin-top:10px; }
-</style>
+<link rel="stylesheet" href="style.css">
 </head>
-
 <body>
 
 <div class="box">
   <h2>Login</h2>
-
   <input type="email" id="email" placeholder="E-mail">
   <input type="password" id="senha" placeholder="Senha">
-
   <button onclick="login()">Entrar</button>
-
-  <p>Não tem conta?<br>
-  <a href="cadastro.html">Cadastre-se aqui</a></p>
+  <p>Não tem conta?<br><a href="cadastro.html">Cadastre-se aqui</a></p>
 </div>
 
 <script type="module">
@@ -75,6 +35,5 @@ window.login = () => {
     .catch(err => alert(err.message));
 };
 </script>
-
 </body>
 </html>
