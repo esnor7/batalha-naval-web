@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Login - Batalha Naval</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body{
+  background:#020202;
+  color:#fff;
+  font-family:Arial;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  height:100vh;
+}
+.box{
+  background:#111;
+  padding:25px;
+  border-radius:10px;
+  width:100%;
+  max-width:320px;
+}
+input,button{
+  width:100%;
+  padding:12px;
+  margin-top:10px;
+  border-radius:6px;
+  border:none;
+}
+button{
+  background:#0af;
+  font-weight:bold;
+  cursor:pointer;
+}
+a{
+  color:#0af;
+  text-decoration:none;
+}
+p{ text-align:center; margin-top:10px; }
+</style>
+</head>
+
+<body>
+
+<div class="box">
+  <h2>Login</h2>
+
+  <input type="email" id="email" placeholder="E-mail">
+  <input type="password" id="senha" placeholder="Senha">
+
+  <button onclick="login()">Entrar</button>
+
+  <p>Não tem conta?<br>
+  <a href="cadastro.html">Cadastre-se aqui</a></p>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBxq1jjSig-yW0kmtR1d_WBYCcc7Ysjz00",
+  authDomain: "batalha-naval-web-5c204.firebaseapp.com",
+  projectId: "batalha-naval-web-5c204"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+
+window.login = () => {
+  signInWithEmailAndPassword(auth, email.value, senha.value)
+    .then(() => window.location.href = "rank.html")
+    .catch(err => alert(err.message));
+};
+</script>
+
+</body>
+</html>

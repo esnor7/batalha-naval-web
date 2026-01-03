@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Batalha Naval</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body{
+  background:#020202;
+  color:#fff;
+  font-family:Arial;
+  margin:0;
+  padding:10px;
+  text-align:center;
+}
+.topo{
+  display:flex;
+  justify-content:space-between;
+  font-size:14px;
+}
+.turno{
+  margin:10px 0;
+  font-weight:bold;
+  color:#0af;
+}
+.tabuleiro{
+  display:grid;
+  grid-template-columns:repeat(10, 1fr);
+  gap:4px;
+  max-width:90vw;
+  margin:0 auto;
+}
+.casa{
+  aspect-ratio:1/1;
+  background:#0af;
+  border-radius:5px;
+  font-size:1.4rem;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  cursor:pointer;
+}
+.casa.revelada{
+  background:#111;
+  cursor:default;
+}
+.casa.bloqueada{
+  pointer-events:none;
+  opacity:0.4;
+}
+#popupPontuacao{
+  position:fixed;
+  top:50%;
+  left:50%;
+  transform:translate(-50%,-50%);
+  font-size:2rem;
+  background:rgba(0,0,0,0.7);
+  padding:20px;
+  border-radius:10px;
+  display:none;
+  z-index:10;
+}
+</style>
+</head>
+<body>
+
+<div class="topo">
+  <div id="p1">Player 1</div>
+  <div id="p2">Player 2</div>
+</div>
+
+<div class="turno" id="turno">Carregando...</div>
+
+<div class="tabuleiro" id="tabuleiro"></div>
+
+<div id="popupPontuacao"></div>
+
+<audio id="somAgua" src="agua.mp3"></audio>
+<audio id="somBomba" src="bomba.mp3"></audio>
+<audio id="somNavio" src="navio.mp3"></audio>
+<audio id="somTurno" src="turno.mp3"></audio>
+<audio id="somVitoria" src="vitoria.mp3"></audio>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getDatabase, ref, onValue, get, set, update } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBxq1jjSig-yW0kmtR1d_WBYCcc7Ysjz00",
+  authDomain: "batalha-naval-web-5c204.firebaseapp.com",
+  databaseURL: "https://batalha-naval-web-5c204-default-rtdb.firebaseio.com",
+  projectId: "batalha-naval-web-5c204"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getDatabase(app);
+
+const params = new URLSearchParams(window.location.search);
+const salaId = params.get("sala");
+if(!salaId){ alert("Sala inválida"); window.location.href="salas.html"; }
+
+let usuario, minhaVez=false, tabuleiro=[], pontos=0;
+
+const tabuleiroDiv=document.getElementById("tabuleiro");
+const turnoEl=document.getElementById("turno");
+const popupPontuacao=document.getElementById("popupPontuacao");
+
+const somAgua=document.getElementById("somAgua");
+const somBomba=document.getElementById("somBomba");
+const somNavio=document.getElementById("somNavio");
+const somTurno=document.getElementById("somTurno");
+const somVitoria=document.getElementById("somVitoria");
+
+onAuthStateChanged(auth,user=>{
+  if(!user) return window.location.href="login.html";
+  usuario=user;
+  iniciarSala();
+});
+
+async function iniciarSala(){
+  const salaRef=ref(db,`salas/${salaId}`);
+
+  const snap=await get(salaRef);
+  const sala=snap.val();
+
+  if(!sala.tabuleiro){
+    await set(ref(db,`salas/${salaId}/tabuleiro`), gerarTabuleiro());
+  }
+
+  // Inicializa pontos no Firebase
+  if(!sala.pontos) await set(ref(db,`salas/${salaId}/pontos/${usuario.uid}`),0);
+
+  onValue(salaRef,snap=>{
+    const dados=snap.val();
+    if(!dados) return;
+
+    const players=Object.entries(dados.players||{});
+    document.getElementById("p1").textContent=players[0]?.[1]?.nome||"";
+    document.getElementById("p2").textContent=players[1]?.[1]?.nome||"";
+
+    minhaVez=dados.turno===usuario.uid;
+    turnoEl.textContent=minhaVez?"🔥 Sua vez":"⏳ Vez do adversário";
+
+    tabuleiro=dados.tabuleiro;
+    pontos=dados.pontos?.[usuario.uid]||0;
+
+    renderizarTabuleiro();
+
+    // Checa vitória
+    const navios = tabuleiro.flat().filter(c=>c.tipo==="navio");
+    const revelados = navios.filter(c=>c.revelado);
+    if(revelados.length===navios.length && navios.length>0){
+      somVitoria.play();
+      alert(`🏆 Vitória! Você ganhou ${pontos} pontos`);
+    }
+  });
+}
+
+function gerarTabuleiro(){
+  const grid=[];
+  for(let i=0;i<10;i++){
+    const linha=[];
+    const navioCol=Math.floor(Math.random()*10);
+    for(let j=0;j<10;j++){
+      linha.push({tipo:j===navioCol?"navio":"bomba",revelado:false});
+    }
+    grid.push(linha);
+  }
+  return grid;
+}
+
+function renderizarTabuleiro(){
+  tabuleiroDiv.innerHTML="";
+  tabuleiro.forEach((linha,i)=>{
+    linha.forEach((casa,j)=>{
+      const div=document.createElement("div");
+      div.className="casa";
+      if(casa.revelado){
+        div.classList.add("revelada");
+        div.textContent=casa.tipo==="navio"?"🛳️":"💣";
+      }else div.textContent="🌊";
+
+      if(!minhaVez || casa.revelado) div.classList.add("bloqueada");
+
+      div.onclick=()=>clicarCasa(i,j);
+      tabuleiroDiv.appendChild(div);
+    });
+  });
+}
+
+let somAtual=null;
+async function clicarCasa(i,j){
+  if(!minhaVez) return;
+  const casa=tabuleiro[i][j];
+  if(casa.revelado) return;
+
+  // Revela
+  casa.revelado=true;
+  await set(ref(db,`salas/${salaId}/tabuleiro/${i}/${j}`),casa);
+
+  // Atualiza pontos
+  if(casa.tipo==="navio"){
+    pontos+=3;
+    await set(ref(db,`salas/${salaId}/pontos/${usuario.uid}`),pontos);
+    mostrarPopup("+3");
+    tocarSom(somNavio);
+  }else{
+    tocarSom(somBomba);
+  }
+
+  // Troca turno
+  const playersSnap=await get(ref(db,`salas/${salaId}/players`));
+  const players=Object.keys(playersSnap.val());
+  const proximo=players.find(uid=>uid!==usuario.uid);
+  await set(ref(db,`salas/${salaId}/turno`),proximo);
+}
+
+function mostrarPopup(texto){
+  popupPontuacao.textContent=texto;
+  popupPontuacao.style.display="block";
+  setTimeout(()=>popupPontuacao.style.display="none",600);
+}
+
+function tocarSom(som){
+  if(somAtual){ somAtual.pause(); somAtual.currentTime=0; }
+  somAtual=som;
+  som.play();
+}
+</script>
+</body>
+</html>

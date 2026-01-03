@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Batalha Naval</title>
+  <style>
+    /* Fundo com imagem escura */
+    body {
+      font-family: Arial, sans-serif;
+      color: #fff;
+      text-align: center;
+      padding: 20px;
+      margin: 0;
+      min-height: 100vh;
+
+      /* Imagem de fundo */
+      background: url('fundobl.png') no-repeat center center fixed;
+      background-size: cover;
+
+      /* Escurecer a imagem */
+      position: relative;
+    }
+
+    /* Overlay escura para escurecer a imagem */
+    body::before {
+      content: "";
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5); /* ajusta o valor para mais ou menos escuro */
+      z-index: -1;
+    }
+
+    input, button { 
+      font-size: 1.2rem; 
+      padding: 10px; 
+      margin: 10px; 
+      border-radius: 5px; 
+      border: none; 
+    }
+    button { 
+      cursor: pointer; 
+      background: #00f; 
+      color: #fff; 
+    }
+
+    /* Garantir que tudo fique acima do overlay */
+    body > * {
+      position: relative;
+      z-index: 1;
+    }
+  </style>
+</head>
+<body>
+  <h1>Batalha Naval</h1>
+  <p>Digite seu nome ou use anônimo:</p>
+  <input type="text" id="nomeJogador" placeholder="Anônimo">
+  <br>
+  <button onclick="entrarSala()">Entrar na Sala</button>
+
+  <script>
+    function entrarSala() {
+      let nome = document.getElementById('nomeJogador').value.trim();
+      if(!nome) nome = "Anônimo";
+      sessionStorage.setItem("usuario", nome);
+      window.location.href = "salabl.html";
+    }
+  </script>
+</body>
+</html>
