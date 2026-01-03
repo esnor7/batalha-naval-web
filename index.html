@@ -1,72 +1,95 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Batalha Naval</title>
-  <style>
-    /* Fundo com imagem escura */
-    body {
-      font-family: Arial, sans-serif;
-      color: #fff;
-      text-align: center;
-      padding: 20px;
-      margin: 0;
-      min-height: 100vh;
+<meta charset="UTF-8">
+<title>Batalha Naval</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-      /* Imagem de fundo */
-      background: url('fundobl.png') no-repeat center center fixed;
-      background-size: cover;
-
-      /* Escurecer a imagem */
-      position: relative;
-    }
-
-    /* Overlay escura para escurecer a imagem */
-    body::before {
-      content: "";
-      position: fixed;
-      top: 0; left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0,0,0,0.5); /* ajusta o valor para mais ou menos escuro */
-      z-index: -1;
-    }
-
-    input, button { 
-      font-size: 1.2rem; 
-      padding: 10px; 
-      margin: 10px; 
-      border-radius: 5px; 
-      border: none; 
-    }
-    button { 
-      cursor: pointer; 
-      background: #00f; 
-      color: #fff; 
-    }
-
-    /* Garantir que tudo fique acima do overlay */
-    body > * {
-      position: relative;
-      z-index: 1;
-    }
-  </style>
+<style>
+body{
+  background:#020202;
+  color:#fff;
+  font-family:Arial, sans-serif;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  height:100vh;
+  margin:0;
+}
+.box{
+  background:#111;
+  padding:25px;
+  border-radius:10px;
+  width:100%;
+  max-width:320px;
+  text-align:center;
+}
+input,button{
+  width:100%;
+  padding:12px;
+  margin-top:10px;
+  border-radius:6px;
+  border:none;
+}
+button{
+  background:#0af;
+  font-weight:bold;
+  cursor:pointer;
+}
+a{
+  color:#0af;
+  text-decoration:none;
+}
+p{ text-align:center; margin-top:10px; }
+h2{ margin-bottom:10px; }
+</style>
 </head>
-<body>
-  <h1>Batalha Naval</h1>
-  <p>Digite seu nome ou use anônimo:</p>
-  <input type="text" id="nomeJogador" placeholder="Anônimo">
-  <br>
-  <button onclick="entrarSala()">Entrar na Sala</button>
 
-  <script>
-    function entrarSala() {
-      let nome = document.getElementById('nomeJogador').value.trim();
-      if(!nome) nome = "Anônimo";
-      sessionStorage.setItem("usuario", nome);
-      window.location.href = "salabl.html";
-    }
-  </script>
+<body>
+
+<div class="box">
+  <h2>Batalha Naval</h2>
+  <input type="email" id="email" placeholder="E-mail">
+  <input type="password" id="senha" placeholder="Senha">
+  <button onclick="login()">Entrar</button>
+
+  <p>Não tem conta?<br>
+  <a href="cadastro.html">Cadastre-se aqui</a></p>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBxq1jjSig-yW0kmtR1d_WBYCcc7Ysjz00",
+  authDomain: "batalha-naval-web-5c204.firebaseapp.com",
+  databaseURL: "https://batalha-naval-web-5c204-default-rtdb.firebaseio.com",
+  projectId: "batalha-naval-web-5c204"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+
+// Se já estiver logado, redireciona direto pro rank
+onAuthStateChanged(auth, user => {
+  if(user) window.location.href = "rank.html";
+});
+
+window.login = () => {
+  const emailVal = document.getElementById("email").value.trim();
+  const senhaVal = document.getElementById("senha").value;
+
+  if(!emailVal || !senhaVal){
+    alert("Digite e-mail e senha!");
+    return;
+  }
+
+  signInWithEmailAndPassword(auth, emailVal, senhaVal)
+    .then(()=> window.location.href="rank.html")
+    .catch(err=> alert("Erro: " + err.message));
+};
+</script>
+
 </body>
 </html>
