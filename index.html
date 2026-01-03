@@ -4,63 +4,32 @@
 <meta charset="UTF-8">
 <title>Batalha Naval</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <style>
-body{
+body {
+  margin:0;
+  padding:0;
   background:#020202;
   color:#fff;
-  font-family:Arial, sans-serif;
+  font-family: Arial, sans-serif;
   display:flex;
   justify-content:center;
   align-items:center;
   height:100vh;
-  margin:0;
-}
-.box{
-  background:#111;
-  padding:25px;
-  border-radius:10px;
-  width:100%;
-  max-width:320px;
   text-align:center;
 }
-input,button{
-  width:100%;
-  padding:12px;
-  margin-top:10px;
-  border-radius:6px;
-  border:none;
-}
-button{
-  background:#0af;
-  font-weight:bold;
-  cursor:pointer;
-}
-a{
-  color:#0af;
-  text-decoration:none;
-}
-p{ text-align:center; margin-top:10px; }
-h2{ margin-bottom:10px; }
+h1 { color:#0af; }
 </style>
 </head>
-
 <body>
 
-<div class="box">
-  <h2>Batalha Naval</h2>
-  <input type="email" id="email" placeholder="E-mail">
-  <input type="password" id="senha" placeholder="Senha">
-  <button onclick="login()">Entrar</button>
-
-  <p>Não tem conta?<br>
-  <a href="cadastro.html">Cadastre-se aqui</a></p>
-</div>
+<h1>Batalha Naval</h1>
+<p>Carregando...</p>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getAuth, onAuthStateChanged, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
+// Configuração do Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyBxq1jjSig-yW0kmtR1d_WBYCcc7Ysjz00",
   authDomain: "batalha-naval-web-5c204.firebaseapp.com",
@@ -71,24 +40,16 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
-// Se já estiver logado, redireciona direto pro rank
+// Verifica login
 onAuthStateChanged(auth, user => {
-  if(user) window.location.href = "rank.html";
-});
-
-window.login = () => {
-  const emailVal = document.getElementById("email").value.trim();
-  const senhaVal = document.getElementById("senha").value;
-
-  if(!emailVal || !senhaVal){
-    alert("Digite e-mail e senha!");
-    return;
+  if(user){
+    // Usuário logado → vai para rank
+    window.location.href = "rank.html";
+  } else {
+    // Usuário não logado → vai para login
+    window.location.href = "login.html";
   }
-
-  signInWithEmailAndPassword(auth, emailVal, senhaVal)
-    .then(()=> window.location.href="rank.html")
-    .catch(err=> alert("Erro: " + err.message));
-};
+});
 </script>
 
 </body>
