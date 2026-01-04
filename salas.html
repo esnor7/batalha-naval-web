@@ -93,7 +93,7 @@ async function criarSala(salaId){
   const salaRef = ref(db, `salas/${salaId}`);
   const snap = await get(salaRef);
   if(!snap.exists()){
-    await set(salaRef,{players:{},iniciada:false});
+    await set(salaRef,{players:{},ready:{},iniciada:false});
   }
 
   const div = document.createElement("div");
@@ -117,46 +117,33 @@ async function criarSala(salaId){
   div.appendChild(btnEntrar);
 
   const btnSair = document.createElement("button");
-  btnSair.textContent="Sair da partida";
+  btnSair.textContent="Sair do lugar";
   btnSair.className="sairBtn";
   div.appendChild(btnSair);
 
   salasDiv.appendChild(div);
 
-  // Sons prontos para o jogo
-  const audioAgua = new Audio("agua.mp3");
-  const audioBomba = new Audio("bomba.mp3");
-  const audioNavio = new Audio("navio.mp3");
-  const audioTurno = new Audio("turno.mp3");
-  const audioVitoria = new Audio("vitoria.mp3");
-
-  // Atualiza em tempo real
+  // Atualiza jogadores em tempo real
   onValue(salaRef, snap=>{
-    const dados = snap.val() || {};
+    const dados = snap.val();
     const players = Object.entries(dados.players || {});
+
     p1.textContent = "Player 1: " + (players[0]?.[1]?.nome || "...");
     p2.textContent = "Player 2: " + (players[1]?.[1]?.nome || "...");
 
     const meuUid = usuario.uid;
-    btnEntrar.disabled = dados.iniciada || players.some(([uid]) => uid === meuUid);
-    btnSair.disabled = !players.some(([uid]) => uid === meuUid);
+    btnEntrar.disabled = dados.iniciada || !!players.find(([uid])=>uid===meuUid);
+    btnSair.disabled = !players.find(([uid])=>uid===meuUid);
 
-    // Se tiver 2 jogadores e o jogo ainda não iniciou, inicia automaticamente
+    // Se tiver 2 jogadores, inicia automaticamente
     if(players.length === 2 && !dados.iniciada){
       update(salaRef, {iniciada:true});
       window.location.href = `jogobl.html?sala=${salaId}`;
     }
-
-    // Se alguém sair e o jogo já estava iniciado
-    if(dados.iniciada && players.length < 2){
-      alert(`Um jogador saiu da partida! Voltando para salas.`);
-      update(salaRef, {iniciada:false});
-      window.location.href = "salas.html";
-    }
   });
 
   // Entrar na sala
-  btnEntrar.onclick = async () => {
+  btnEntrar.onclick = async ()=>{
     const todasSalasSnap = await get(ref(db,"salas"));
     const todasSalas = todasSalasSnap.val() || {};
     for(const s in todasSalas){
@@ -167,28 +154,20 @@ async function criarSala(salaId){
     }
 
     const salaSnap = await get(salaRef);
-    const sala = salaSnap.val() || {};
+    const sala = salaSnap.val();
     const players = sala.players || {};
-    if(Object.keys(players).length >= 2){
+    if(Object.keys(players).length>=2){
       alert("Sala cheia!");
       return;
     }
 
-    await set(ref(db, `salas/${salaId}/players/${usuario.uid}`), {nome:usuario.displayName || "Jogador"});
+    await set(ref(db, `salas/${salaId}/players/${usuario.uid}`), {nome:usuario.displayName || usuario.email});
   };
 
-  // Sair da sala
-  btnSair.onclick = async () => {
-    const salaSnap = await get(salaRef);
-    const sala = salaSnap.val() || {};
-    const players = sala.players || {};
-    if(players.length > 0){
-      const nome = players.find(([uid]) => uid === usuario.uid)?.[1]?.nome || "Você";
-      if(confirm(`${nome} deseja sair da partida?`)){
-        await remove(ref(db, `salas/${salaId}/players/${usuario.uid}`));
-        window.location.href = "salas.html";
-      }
-    }
+  // Sair do lugar
+  btnSair.onclick = async ()=>{
+    await remove(ref(db, `salas/${salaId}/players/${usuario.uid}`));
+    await remove(ref(db, `salas/${salaId}/ready/${usuario.uid}`));
   };
 }
 </script>
