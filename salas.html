@@ -75,11 +75,16 @@ const auth = getAuth(app);
 const db = getDatabase(app);
 
 const salasDiv = document.getElementById("salas");
-let usuario;
+let usuario, nomeUsuario;
 
-onAuthStateChanged(auth, user => {
+onAuthStateChanged(auth, async user => {
   if(!user) return window.location.href="login.html";
   usuario = user;
+
+  // Pega o nome do usuário no banco
+  const nomeSnap = await get(ref(db, `usuarios/${usuario.uid}/nome`));
+  nomeUsuario = nomeSnap.val() || "Jogador";
+
   carregarSalas();
 });
 
@@ -127,7 +132,7 @@ async function criarSala(salaId){
   onValue(salaRef, snap=>{
     const dados = snap.val();
     const players = Object.entries(dados.players || {});
-
+    
     p1.textContent = "Player 1: " + (players[0]?.[1]?.nome || "...");
     p2.textContent = "Player 2: " + (players[1]?.[1]?.nome || "...");
 
@@ -136,7 +141,7 @@ async function criarSala(salaId){
     btnSair.disabled = !players.find(([uid])=>uid===meuUid);
 
     // Se tiver 2 jogadores, inicia automaticamente
-    if(players.length === 2 && !dados.iniciada){
+    if(Object.keys(dados.players || {}).length===2 && !dados.iniciada){
       update(salaRef, {iniciada:true});
       window.location.href = `jogobl.html?sala=${salaId}`;
     }
@@ -161,7 +166,7 @@ async function criarSala(salaId){
       return;
     }
 
-    await set(ref(db, `salas/${salaId}/players/${usuario.uid}`), {nome:usuario.displayName || usuario.email});
+    await set(ref(db, `salas/${salaId}/players/${usuario.uid}`), {nome:nomeUsuario});
   };
 
   // Sair do lugar
