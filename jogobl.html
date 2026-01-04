@@ -5,47 +5,13 @@
 <title>Batalha Naval</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-body {
-  background:#020202;
-  color:#fff;
-  font-family:Arial,sans-serif;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  margin:0;
-  padding:10px;
-}
+body { background:#020202; color:#fff; font-family:Arial,sans-serif; display:flex; flex-direction:column; align-items:center; margin:0; padding:10px; }
 h2 { margin:10px 0; text-align:center; }
 #info { margin-bottom:10px; text-align:center; font-size:16px; }
-#tabuleiro {
-  display:grid;
-  grid-template-columns: repeat(10, 1fr);
-  grid-gap:4px;
-  width:100%;
-  max-width:400px;
-}
-.celula {
-  background:#0af;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  font-size:1.4em;
-  cursor:pointer;
-  border-radius:4px;
-  user-select:none;
-  aspect-ratio:1/1;
-}
+#tabuleiro { display:grid; grid-template-columns: repeat(10, 1fr); grid-gap:4px; width:100%; max-width:400px; }
+.celula { background:#0af; display:flex; justify-content:center; align-items:center; font-size:1.4em; cursor:pointer; border-radius:4px; user-select:none; aspect-ratio:1/1; }
 .celula.desativada { cursor:not-allowed; opacity:0.6; }
-button {
-  margin-top:10px;
-  padding:10px 20px;
-  border:none;
-  border-radius:6px;
-  background:#f33;
-  color:#fff;
-  font-weight:bold;
-  cursor:pointer;
-}
+button { margin-top:10px; padding:10px 20px; border:none; border-radius:6px; background:#f33; color:#fff; font-weight:bold; cursor:pointer; }
 </style>
 </head>
 <body>
@@ -116,19 +82,16 @@ async function iniciarJogo(){
     if(player2Uid) await set(ref(db, `jogos/${salaId}/pontos/${player2Uid}`), 0);
   }
 
-  // Atualiza vez
   onValue(ref(db, `jogos/${salaId}/vez`), snap=>{
     vezUid = snap.val();
     atualizarInfo();
   });
 
-  // Atualiza tabuleiro
   onValue(tabRef, snap=>{
     const tab = snap.val();
     if(tab) renderTabuleiro(tab);
   });
 
-  // Atualiza jogadores e nomes
   onValue(ref(db, `salas/${salaId}/players`), snap=>{
     const players = snap.val() || {};
     const uids = Object.keys(players);
@@ -162,8 +125,8 @@ function renderTabuleiro(tab){
     for(let j=0;j<10;j++){
       const cel = document.createElement("div");
       cel.className="celula";
-      // mostra água inicialmente, revela navio ao clicar
-      cel.textContent = tab[i][j]==="🌊" || tab[i][j]==="🛳️" ? "🌊" : tab[i][j];
+      // mostra água inicialmente, navio permanece oculto até clicado
+      cel.textContent = (tab[i][j]==="🌊" || tab[i][j]==="🛳️") ? "🌊" : tab[i][j];
       if(meuUid!==vezUid || tab[i][j]==="💣") cel.classList.add("desativada");
       cel.onclick = ()=>clicarCelula(i,j,tab);
       tabuleiroDiv.appendChild(cel);
@@ -175,13 +138,13 @@ async function clicarCelula(i,j,tab){
   if(meuUid!==vezUid) return;
   const tabRef = ref(db, `jogos/${salaId}/tabuleiro`);
   const valor = tab[i][j];
-  if(valor==="💣" || valor==="☠️") return; // já clicado
+  if(valor==="💣" || valor==="☠️") return;
 
   if(valor==="🌊"){
     tab[i][j]="💣";
     audioBomba.play();
   } else if(valor==="🛳️"){
-    tab[i][j]="🛳️"; // revela navio
+    tab[i][j]="🛳️"; // mostra navio corretamente
     audioNavio.play();
     const pontosRef = ref(db, `jogos/${salaId}/pontos/${meuUid}`);
     const snap = await get(pontosRef);
@@ -190,7 +153,6 @@ async function clicarCelula(i,j,tab){
 
   await set(tabRef, tab);
 
-  // Alterna vez
   const proximo = (vezUid===player1Uid?player2Uid:player1Uid);
   await set(ref(db, `jogos/${salaId}/vez`), proximo);
   audioTurno.play();
@@ -226,15 +188,12 @@ async function finalizarPartida(tab){
   audioVitoria.play();
   alert(mensagem);
 
-  // Atualiza rank de ambos
   await atualizarRank(player1Uid, pontos1);
   await atualizarRank(player2Uid, pontos2);
 
-  // Limpa sala e jogo
   await set(ref(db, `salas/${salaId}/iniciada`), false);
   await remove(ref(db, `jogos/${salaId}`));
 
-  // Reinicia tabuleiro automaticamente se os dois ainda estiverem
   iniciarJogo();
 }
 
