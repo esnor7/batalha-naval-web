@@ -4,8 +4,61 @@
 <meta charset="UTF-8">
 <title>Rank Global - Batalha Naval</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="stylesheet" href="style.css">
+
+<style>
+body {
+  background:#020202;
+  color:#fff;
+  font-family:Arial, sans-serif;
+  margin:0;
+  padding:10px;
+  text-align:center;
+  display:flex;
+  flex-direction:column;
+  min-height:100vh;
+}
+
+h2 {
+  margin-bottom:20px;
+  color:#0af;
+}
+
+table {
+  width:90%;
+  max-width:500px;
+  margin:0 auto;
+  border-collapse:collapse;
+}
+
+th, td {
+  padding:10px;
+  border-bottom:1px solid #0af;
+  text-align:left;
+}
+
+th {
+  color:#0af;
+}
+
+.rank-number {
+  width:30px;
+}
+
+button {
+  padding:12px 20px;
+  background:#0af;
+  color:#000;
+  font-weight:bold;
+  border:none;
+  border-radius:6px;
+  cursor:pointer;
+  position:fixed;
+  bottom:20px;
+  right:20px;
+}
+</style>
 </head>
+
 <body>
 
 <h2>RANK GLOBAL</h2>
@@ -13,6 +66,7 @@
 <table>
   <thead>
     <tr>
+      <th>#</th>
       <th>Nome</th>
       <th>Pontos</th>
       <th>Vitórias</th>
@@ -41,9 +95,8 @@ const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 const auth = getAuth(app);
 
-// Redireciona se não estiver logado
 onAuthStateChanged(auth, user => {
-  if(!user) window.location.href = "index.html";
+  if(!user) window.location.href = "login.html";
 });
 
 const rankBody = document.getElementById("rankBody");
@@ -51,15 +104,16 @@ const usuariosRef = ref(db, "usuarios");
 
 onValue(usuariosRef, snapshot => {
   const usuarios = snapshot.val() || {};
-
+  
   // Ordena por pontos decrescente
-  const lista = Object.values(usuarios).sort((a,b) => b.pontos - a.pontos);
+  const lista = Object.values(usuarios).sort((a,b) => (b.pontos || 0) - (a.pontos || 0));
 
   rankBody.innerHTML = "";
 
-  lista.forEach(u => {
+  lista.forEach((u, index) => {
     const tr = document.createElement("tr");
     tr.innerHTML = `
+      <td class="rank-number">${index + 1}°</td>
       <td>${u.nome}</td>
       <td>${u.pontos || 0}</td>
       <td>${u.vitorias || 0}</td>
