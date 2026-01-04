@@ -10,15 +10,11 @@
 
 <div class="box">
   <h2>Cadastro</h2>
-
   <input type="text" id="nome" placeholder="Nome de usuário">
   <input type="email" id="email" placeholder="E-mail">
   <input type="password" id="senha" placeholder="Senha (mín. 6)">
-
   <button onclick="cadastrar()">Criar Conta</button>
-
-  <p>Já tem conta?<br>
-  <a href="index.html">Entrar</a></p>
+  <p>Já tem conta?<br><a href="index.html">Entrar</a></p>
 </div>
 
 <script type="module">
@@ -37,7 +33,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 
-window.cadastrar = () => {
+window.cadastrar = async () => {
   const nomeUsuario = nome.value.trim();
   const emailUsuario = email.value.trim();
   const senhaUsuario = senha.value;
@@ -50,21 +46,26 @@ window.cadastrar = () => {
     return alert("Senha mínima de 6 caracteres");
   }
 
-  createUserWithEmailAndPassword(auth, emailUsuario, senhaUsuario)
-    .then(res => {
-      const uid = res.user.uid;
+  try {
+    const cred = await createUserWithEmailAndPassword(auth, emailUsuario, senhaUsuario);
+    const uid = cred.user.uid;
 
-      // Salva no banco de dados
-      set(ref(db, `usuarios/${uid}`), {
-        nome: nomeUsuario,
-        pontos: 0,
-        vitorias: 0
-      });
+    // Salva nome, pontos e vitórias
+    await set(ref(db, `usuarios/${uid}`), {
+      nome: nomeUsuario,
+      pontos: 0,
+      vitorias: 0
+    });
 
-      alert("Cadastro realizado com sucesso!");
-      window.location.href = "index.html";
-    })
-    .catch(err => alert(err.message));
+    // Salva localmente para usar na sala
+    localStorage.setItem("nomeUsuario", nomeUsuario);
+    localStorage.setItem("uidUsuario", uid);
+
+    alert("Cadastro realizado com sucesso!");
+    window.location.href = "rank.html";
+  } catch(err){
+    alert(err.message);
+  }
 };
 </script>
 
