@@ -4,14 +4,31 @@
 <meta charset="UTF-8">
 <title>Batalha Naval</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="stylesheet" href="style.css">
 <style>
+body{
+  background:#020202;
+  color:#fff;
+  font-family:Arial;
+  margin:0;
+  padding:10px;
+  text-align:center;
+}
+.topo{
+  display:flex;
+  justify-content:space-between;
+  font-size:14px;
+}
+.turno{
+  margin:10px 0;
+  font-weight:bold;
+  color:#0af;
+}
 .tabuleiro{
   display:grid;
-  grid-template-columns:repeat(10,1fr);
+  grid-template-columns:repeat(10, 1fr);
   gap:4px;
   max-width:90vw;
-  margin:20px auto;
+  margin:0 auto;
 }
 .casa{
   aspect-ratio:1/1;
@@ -30,11 +47,6 @@
 .casa.bloqueada{
   pointer-events:none;
   opacity:0.4;
-}
-.turno{
-  font-weight:bold;
-  color:#0af;
-  margin-bottom:10px;
 }
 #popupPontuacao{
   position:fixed;
@@ -61,7 +73,6 @@
 <div class="tabuleiro" id="tabuleiro"></div>
 <div id="popupPontuacao"></div>
 
-<!-- Sons -->
 <audio id="somAgua" src="agua.mp3"></audio>
 <audio id="somBomba" src="bomba.mp3"></audio>
 <audio id="somNavio" src="navio.mp3"></audio>
@@ -73,7 +84,6 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getDatabase, ref, onValue, get, set, update } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
-// Config Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyBxq1jjSig-yW0kmtR1d_WBYCcc7Ysjz00",
   authDomain: "batalha-naval-web-5c204.firebaseapp.com",
@@ -85,13 +95,11 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 
-// Sala
 const params = new URLSearchParams(window.location.search);
 const salaId = params.get("sala");
-if(!salaId){ alert("Sala inválida"); window.location.href="salabl.html"; }
+if(!salaId){ alert("Sala inválida"); window.location.href="salas.html"; }
 
 let usuario, minhaVez=false, tabuleiro=[], pontos=0;
-
 const tabuleiroDiv=document.getElementById("tabuleiro");
 const turnoEl=document.getElementById("turno");
 const popupPontuacao=document.getElementById("popupPontuacao");
@@ -102,63 +110,60 @@ const somNavio=document.getElementById("somNavio");
 const somTurno=document.getElementById("somTurno");
 const somVitoria=document.getElementById("somVitoria");
 
-let somAtual = null;
+let somAtual=null;
 
-// Autenticação
 onAuthStateChanged(auth,user=>{
-  if(!user) return window.location.href="index.html";
-  usuario = user;
+  if(!user) return window.location.href="login.html";
+  usuario=user;
   iniciarSala();
 });
 
-// Inicializa sala
 async function iniciarSala(){
   const salaRef = ref(db,`salas/${salaId}`);
   const snap = await get(salaRef);
   const sala = snap.val();
 
-  // Cria tabuleiro se não existir
   if(!sala.tabuleiro){
     await set(ref(db,`salas/${salaId}/tabuleiro`), gerarTabuleiro());
   }
 
-  // Inicializa pontos
+  // Inicializa pontos no Firebase
   if(!sala.pontos) await set(ref(db,`salas/${salaId}/pontos/${usuario.uid}`),0);
 
   onValue(salaRef,snap=>{
     const dados = snap.val();
     if(!dados) return;
 
-    const players = Object.entries(dados.players || {});
+    const players = Object.entries(dados.players||{});
     document.getElementById("p1").textContent = players[0]?.[1]?.nome || "";
     document.getElementById("p2").textContent = players[1]?.[1]?.nome || "";
 
-    minhaVez = dados.turno === usuario.uid;
+    minhaVez = dados.turno===usuario.uid;
     turnoEl.textContent = minhaVez ? "🔥 Sua vez" : "⏳ Vez do adversário";
 
     tabuleiro = dados.tabuleiro;
-    pontos = dados.pontos?.[usuario.uid] || 0;
+    pontos = dados.pontos?.[usuario.uid]||0;
 
     renderizarTabuleiro();
 
-    // Checa vitória
+    // Vitória
     const navios = tabuleiro.flat().filter(c=>c.tipo==="navio");
     const revelados = navios.filter(c=>c.revelado);
-    if(navios.length>0 && revelados.length === navios.length){
-      somVitoria.play();
-      alert(`🏆 Vitória! Você ganhou ${pontos} pontos`);
-      // Atualiza rank global
-      update(ref(db,`usuarios/${usuario.uid}`), {pontos, vitorias:(dados.vitorias||0)+1});
+    if(revelados.length===navios.length && navios.length>0){
+      if(!dados.vitoria){
+        update(ref(db,`salas/${salaId}`),{vitoria:usuario.uid});
+        somVitoria.play();
+        alert(`🏆 Vitória! Você ganhou ${pontos} pontos`);
+      }
     }
   });
 }
 
-// Gera tabuleiro
 function gerarTabuleiro(){
   const grid=[];
   for(let i=0;i<10;i++){
     const linha=[];
-    const navioCol=Math.floor(Math.random()*10);
+    const navioCol = Math.floor(Math.random()*10);
     for(let j=0;j<10;j++){
       linha.push({tipo:j===navioCol?"navio":"bomba",revelado:false});
     }
@@ -167,41 +172,40 @@ function gerarTabuleiro(){
   return grid;
 }
 
-// Renderiza tabuleiro
 function renderizarTabuleiro(){
   tabuleiroDiv.innerHTML="";
   tabuleiro.forEach((linha,i)=>{
     linha.forEach((casa,j)=>{
-      const div=document.createElement("div");
+      const div = document.createElement("div");
       div.className="casa";
       if(casa.revelado){
         div.classList.add("revelada");
-        div.textContent=casa.tipo==="navio"?"🛳️":"💣";
-      } else div.textContent="🌊";
-
+        div.textContent = casa.tipo==="navio"?"🛳️":"💣";
+      }else{
+        div.textContent="🌊";
+      }
       if(!minhaVez || casa.revelado) div.classList.add("bloqueada");
-
-      div.onclick=()=>clicarCasa(i,j);
+      div.onclick = ()=>clicarCasa(i,j);
       tabuleiroDiv.appendChild(div);
     });
   });
 }
 
-// Clicar casa
 async function clicarCasa(i,j){
   if(!minhaVez) return;
   const casa = tabuleiro[i][j];
   if(casa.revelado) return;
 
+  // Revela a casa
   casa.revelado = true;
-  await set(ref(db,`salas/${salaId}/tabuleiro/${i}/${j}`),casa);
+  await set(ref(db,`salas/${salaId}/tabuleiro/${i}/${j}`), casa);
 
   if(casa.tipo==="navio"){
-    pontos +=3;
-    await set(ref(db,`salas/${salaId}/pontos/${usuario.uid}`),pontos);
+    pontos += 3;
+    await set(ref(db,`salas/${salaId}/pontos/${usuario.uid}`), pontos);
     mostrarPopup("+3");
     tocarSom(somNavio);
-  } else {
+  }else{
     tocarSom(somBomba);
   }
 
@@ -212,14 +216,12 @@ async function clicarCasa(i,j){
   if(proximo) await set(ref(db,`salas/${salaId}/turno`),proximo);
 }
 
-// Popup pontuação
 function mostrarPopup(texto){
   popupPontuacao.textContent = texto;
-  popupPontuacao.style.display="block";
+  popupPontuacao.style.display = "block";
   setTimeout(()=>popupPontuacao.style.display="none",600);
 }
 
-// Tocar som sincronizado
 function tocarSom(som){
   if(somAtual){ somAtual.pause(); somAtual.currentTime=0; }
   somAtual = som;
