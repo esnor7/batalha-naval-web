@@ -10,11 +10,15 @@
 
 <div class="box">
   <h2>Cadastro</h2>
+
   <input type="text" id="nome" placeholder="Nome de usuário">
   <input type="email" id="email" placeholder="E-mail">
   <input type="password" id="senha" placeholder="Senha (mín. 6)">
+
   <button onclick="cadastrar()">Criar Conta</button>
-  <p>Já tem conta?<br><a href="login.html">Entrar</a></p>
+
+  <p>Já tem conta?<br>
+  <a href="index.html">Entrar</a></p>
 </div>
 
 <script type="module">
@@ -34,21 +38,35 @@ const auth = getAuth(app);
 const db = getDatabase(app);
 
 window.cadastrar = () => {
-  const nomeVal = nome.value.trim();
-  const emailVal = email.value.trim();
-  const senhaVal = senha.value;
+  const nomeUsuario = nome.value.trim();
+  const emailUsuario = email.value.trim();
+  const senhaUsuario = senha.value;
 
-  if(!nomeVal) return alert("Digite um nome");
-  if(senhaVal.length < 6) return alert("Senha mínima de 6 caracteres");
+  if(!nomeUsuario || !emailUsuario || !senhaUsuario){
+    return alert("Preencha todos os campos!");
+  }
 
-  createUserWithEmailAndPassword(auth, emailVal, senhaVal)
+  if(senhaUsuario.length < 6){
+    return alert("Senha mínima de 6 caracteres");
+  }
+
+  createUserWithEmailAndPassword(auth, emailUsuario, senhaUsuario)
     .then(res => {
       const uid = res.user.uid;
-      set(ref(db, `usuarios/${uid}`), {nome:nomeVal,pontos:0,vitorias:0});
-      window.location.href = "login.html";
+
+      // Salva no banco de dados
+      set(ref(db, `usuarios/${uid}`), {
+        nome: nomeUsuario,
+        pontos: 0,
+        vitorias: 0
+      });
+
+      alert("Cadastro realizado com sucesso!");
+      window.location.href = "index.html";
     })
     .catch(err => alert(err.message));
 };
 </script>
+
 </body>
 </html>

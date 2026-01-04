@@ -9,6 +9,7 @@
 <body>
 
 <h2>RANK GLOBAL</h2>
+
 <table>
   <thead>
     <tr>
@@ -17,9 +18,12 @@
       <th>Vitórias</th>
     </tr>
   </thead>
-  <tbody id="rankBody"></tbody>
+  <tbody id="rankBody">
+    <!-- Usuários serão inseridos aqui -->
+  </tbody>
 </table>
-<button onclick="window.location.href='salabl.html'">SALAS</button>
+
+<button onclick="window.location.href='salas.html'">SALAS</button>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
@@ -37,23 +41,33 @@ const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 const auth = getAuth(app);
 
+// Redireciona se não estiver logado
 onAuthStateChanged(auth, user => {
-  if(!user) window.location.href="login.html";
+  if(!user) window.location.href = "index.html";
 });
 
-const rankBody=document.getElementById("rankBody");
-const usuariosRef=ref(db,"usuarios");
+const rankBody = document.getElementById("rankBody");
+const usuariosRef = ref(db, "usuarios");
 
-onValue(usuariosRef, snapshot=>{
-  const usuarios=snapshot.val()||{};
-  const lista=Object.values(usuarios).sort((a,b)=>b.pontos-a.pontos);
-  rankBody.innerHTML="";
-  lista.forEach(u=>{
-    const tr=document.createElement("tr");
-    tr.innerHTML=`<td>${u.nome}</td><td>${u.pontos||0}</td><td>${u.vitorias||0}</td>`;
+onValue(usuariosRef, snapshot => {
+  const usuarios = snapshot.val() || {};
+
+  // Ordena por pontos decrescente
+  const lista = Object.values(usuarios).sort((a,b) => b.pontos - a.pontos);
+
+  rankBody.innerHTML = "";
+
+  lista.forEach(u => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${u.nome}</td>
+      <td>${u.pontos || 0}</td>
+      <td>${u.vitorias || 0}</td>
+    `;
     rankBody.appendChild(tr);
   });
 });
 </script>
+
 </body>
 </html>

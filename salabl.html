@@ -6,11 +6,40 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="style.css">
 <style>
-.topo{display:flex;justify-content:space-between;margin-bottom:20px;}
-.sala{background:#111;padding:15px;border-radius:8px;margin-bottom:15px;}
-.sala div{margin-bottom:5px;}
-button{padding:10px;border:none;border-radius:5px;background:#0af;color:#fff;font-weight:bold;cursor:pointer;}
-button:disabled{background:#555;cursor:not-allowed;}
+body{
+  background:#020202;
+  color:#fff;
+  font-family:Arial, sans-serif;
+  margin:0;
+  padding:20px;
+}
+.topo{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:20px;
+}
+h2{text-align:center; margin:0;}
+.sala{
+  background:#111;
+  padding:15px;
+  border-radius:8px;
+  margin-bottom:15px;
+}
+.sala div{ margin-bottom:5px; }
+button{
+  padding:10px;
+  border:none;
+  border-radius:5px;
+  background:#0af;
+  color:#fff;
+  font-weight:bold;
+  cursor:pointer;
+}
+button:disabled{
+  background:#555;
+  cursor:not-allowed;
+}
 </style>
 </head>
 <body>
@@ -26,7 +55,7 @@ button:disabled{background:#555;cursor:not-allowed;}
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getDatabase, ref, onValue, get, set, update, remove } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getDatabase, ref, onValue, get, set, update } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBxq1jjSig-yW0kmtR1d_WBYCcc7Ysjz00",
@@ -42,9 +71,9 @@ const db = getDatabase(app);
 const salasDiv = document.getElementById("salas");
 let usuario;
 
-onAuthStateChanged(auth, user=>{
-  if(!user) window.location.href="login.html";
-  usuario=user;
+onAuthStateChanged(auth, user => {
+  if(!user) return window.location.href="index.html";
+  usuario = user;
   carregarSalas();
 });
 
@@ -56,9 +85,15 @@ function carregarSalas(){
 
 function criarSala(salaId){
   const salaRef = ref(db, `salas/${salaId}`);
+  
+  // Cria sala se não existir
   get(salaRef).then(snap=>{
     if(!snap.exists()){
-      set(salaRef,{players:{},ready:{},iniciada:false});
+      set(salaRef,{
+        players:{},
+        ready:{},
+        iniciada:false
+      });
     }
   });
 
@@ -82,39 +117,32 @@ function criarSala(salaId){
   btn.textContent="Entrar";
   div.appendChild(btn);
 
-  btn.onclick = () => entrarSala(salaId);
+  btn.onclick=()=>entrarSala(salaId);
+
   salasDiv.appendChild(div);
 
-  // Atualiza jogadores e botão em tempo real
+  // Atualiza a sala em tempo real
   onValue(salaRef, snap=>{
     const dados = snap.val();
     const players = Object.values(dados.players||{});
+
     p1.textContent="Player 1: "+(players[0]?.nome||"...");
     p2.textContent="Player 2: "+(players[1]?.nome||"...");
-    
+
+    // Se sala cheia e jogador atual não está nela
     btn.disabled = dados.iniciada || (players.length>=2 && !dados.players[usuario.uid]);
 
-    // Se os 2 entraram e estão prontos, habilita iniciar
-    if(dados.ready && Object.keys(dados.ready||{}).length===2 && !dados.iniciada){
-      const iniciarBtn = document.createElement("button");
-      iniciarBtn.textContent="Iniciar Partida";
-      iniciarBtn.onclick = async ()=>{
-        await update(ref(db, `salas/${salaId}`), {iniciada:true});
-        window.location.href=`jogobl.html?sala=${salaId}`;
-      };
-      if(!div.querySelector(".iniciar")){ 
-        iniciarBtn.className="iniciar"; 
-        div.appendChild(iniciarBtn);
-      }
+    // Se os 2 jogadores entraram e ainda não iniciaram
+    if(players.length===2 && !dados.iniciada){
+      btn.textContent = dados.players[usuario.uid] ? "Iniciar" : "Aguardando parceiro...";
+    } else {
+      btn.textContent = "Entrar";
     }
-  });
 
-  // Remove jogador se fechar aba/janela
-  window.addEventListener("beforeunload", async()=>{
-    const playerRef = ref(db, `salas/${salaId}/players/${usuario.uid}`);
-    const readyRef = ref(db, `salas/${salaId}/ready/${usuario.uid}`);
-    await remove(playerRef);
-    await remove(readyRef);
+    // Se a partida começou
+    if(dados.iniciada){
+      window.location.href = `jogobl.html?sala=${salaId}`;
+    }
   });
 }
 
@@ -123,15 +151,25 @@ async function entrarSala(salaId){
   const snap = await get(salaRef);
   const sala = snap.val();
 
-  if(Object.keys(sala.players||{}).length<2 || sala.players[usuario.uid]){
+  const players = sala.players || {};
+  
+  // Adiciona jogador se ainda não estiver
+  if(!players[usuario.uid] && Object.keys(players).length<2){
     await set(ref(db, `salas/${salaId}/players/${usuario.uid}`),{
-      nome: usuario.displayName||usuario.email
+      nome: usuario.displayName || usuario.email
     });
-    await set(ref(db, `salas/${salaId}/ready/${usuario.uid}`), true);
-  } else {
-    alert("Sala cheia!");
+  }
+
+  // Se ambos os jogadores estão prontos, inicia
+  const snap2 = await get(salaRef);
+  const playersAtualizados = snap2.val().players || {};
+  if(Object.keys(playersAtualizados).length===2){
+    if(confirm("Deseja iniciar a partida?")){
+      await update(ref(db, `salas/${salaId}`), {iniciada:true});
+    }
   }
 }
 </script>
+
 </body>
 </html>

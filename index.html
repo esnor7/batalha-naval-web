@@ -2,33 +2,56 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Batalha Naval</title>
+<title>Login - Batalha Naval</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <div class="box">
-  <h2>Batalha Naval</h2>
-  <button onclick="window.location.href='login.html'">Entrar / Cadastrar</button>
+  <h2>Login</h2>
+
+  <input type="email" id="email" placeholder="E-mail">
+  <input type="password" id="senha" placeholder="Senha">
+
+  <button onclick="login()">Entrar</button>
+
+  <p>Não tem conta?<br>
+  <a href="cadastro.html">Cadastre-se aqui</a></p>
 </div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBxq1jjSig-yW0kmtR1d_WBYCcc7Ysjz00",
   authDomain: "batalha-naval-web-5c204.firebaseapp.com",
+  databaseURL: "https://batalha-naval-web-5c204-default-rtdb.firebaseio.com",
   projectId: "batalha-naval-web-5c204"
 };
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
+// Redireciona se já estiver logado
 onAuthStateChanged(auth, user => {
   if(user) window.location.href = "rank.html";
 });
+
+window.login = () => {
+  const emailUsuario = email.value.trim();
+  const senhaUsuario = senha.value;
+
+  if(!emailUsuario || !senhaUsuario) return alert("Preencha todos os campos!");
+
+  signInWithEmailAndPassword(auth, emailUsuario, senhaUsuario)
+    .then(() => {
+      window.location.href = "rank.html";
+    })
+    .catch(err => alert(err.message));
+};
 </script>
+
 </body>
 </html>
