@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Batalha Naval - Jogo</title>
+<title>Batalha Naval - Partida</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
 body{
@@ -11,41 +11,59 @@ body{
   font-family:Arial, sans-serif;
   margin:0;
   padding:20px;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
+  text-align:center;
 }
-h2{text-align:center;}
-#boards{display:flex; gap:20px; margin-top:20px;}
-.board{display:grid; grid-template-columns: repeat(5, 50px); grid-template-rows: repeat(5, 50px);}
-.cell{border:1px solid #0af; width:50px; height:50px; display:flex; justify-content:center; align-items:center; cursor:pointer; user-select:none;}
-.cell.hit{background:red;}
-.cell.miss{background:#333;}
-#status{margin-top:20px;}
-#sairBtn{position:fixed; top:20px; right:20px; padding:10px 15px; border:none; border-radius:5px; background:#f33; color:#fff; font-weight:bold; cursor:pointer;}
+h2{margin-bottom:10px;}
+#jogo{display:flex;justify-content:center;gap:50px;flex-wrap:wrap;}
+.tabuleiro{
+  display:grid;
+  grid-template-columns: repeat(10, 30px);
+  grid-template-rows: repeat(10, 30px);
+  gap:2px;
+  margin-bottom:20px;
+}
+.celula{
+  width:30px; height:30px;
+  background:#111;
+  border:1px solid #0af;
+  cursor:pointer;
+}
+.celula.tocado{background:#f33;}
+.celula.agua{background:#0af;}
+button{
+  padding:10px 15px;
+  border:none;
+  border-radius:6px;
+  background:#0af;
+  font-weight:bold;
+  cursor:pointer;
+  color:#000;
+}
+button:disabled{background:#555; cursor:not-allowed;}
+.sairBtn{
+  position:fixed;
+  top:20px;
+  right:20px;
+  background:#f33;
+  color:#fff;
+}
 </style>
 </head>
 <body>
 
-<h2>Batalha Naval - Sala</h2>
-<button id="sairBtn">Sair</button>
-<div id="boards">
+<h2>Batalha Naval</h2>
+<button class="sairBtn">Sair da partida</button>
+
+<div id="jogo">
   <div>
-    <h3>Seu Tabuleiro</h3>
-    <div id="meuBoard" class="board"></div>
+    <h3>Seu tabuleiro</h3>
+    <div class="tabuleiro" id="meuTabuleiro"></div>
   </div>
   <div>
-    <h3>Tabuleiro Inimigo</h3>
-    <div id="inimigoBoard" class="board"></div>
+    <h3>Tabuleiro do inimigo</h3>
+    <div class="tabuleiro" id="inimigoTabuleiro"></div>
   </div>
 </div>
-<div id="status">Aguardando jogador...</div>
-
-<audio id="somAgua" src="agua.mp3"></audio>
-<audio id="somBomba" src="bomba.mp3"></audio>
-<audio id="somNavio" src="navio.mp3"></audio>
-<audio id="somTurno" src="turno.mp3"></audio>
-<audio id="somVitoria" src="vitoria.mp3"></audio>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
@@ -63,118 +81,157 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 
-const urlParams = new URLSearchParams(window.location.search);
-const salaId = urlParams.get("sala");
+// Pegando sala pela URL
+const params = new URLSearchParams(window.location.search);
+const salaId = params.get("sala");
+if(!salaId) window.location.href = "salas.html";
 
-let usuario, meuTabuleiro = [], inimigoTabuleiro = [], meuTurno = false, outroUid;
+let usuario;
+let meuTabuleiro = [];
+let inimigoTabuleiro = [];
+let vez = null; // UID do jogador da vez
+let jogadores = [];
 
-const meuBoardDiv = document.getElementById("meuBoard");
-const inimigoBoardDiv = document.getElementById("inimigoBoard");
-const statusDiv = document.getElementById("status");
+const meuTabuleiroDiv = document.getElementById("meuTabuleiro");
+const inimigoTabuleiroDiv = document.getElementById("inimigoTabuleiro");
+const sairBtn = document.querySelector(".sairBtn");
 
-const somAgua = document.getElementById("somAgua");
-const somBomba = document.getElementById("somBomba");
-const somNavio = document.getElementById("somNavio");
-const somTurno = document.getElementById("somTurno");
-const somVitoria = document.getElementById("somVitoria");
+// Sons
+const audioAgua = new Audio("agua.mp3");
+const audioBomba = new Audio("bomba.mp3");
+const audioNavio = new Audio("navio.mp3");
+const audioTurno = new Audio("turno.mp3");
+const audioVitoria = new Audio("vitoria.mp3");
 
-onAuthStateChanged(auth, user=>{
-  if(!user) return window.location.href="login.html";
-  usuario = user;
-  inicializarJogo();
-});
-
-async function inicializarJogo(){
-  const salaRef = ref(db, `salas/${salaId}`);
-  const salaSnap = await get(salaRef);
-  if(!salaSnap.exists()) return alert("Sala não encontrada!");
-
-  const sala = salaSnap.val();
-  const players = Object.keys(sala.players || {});
-  outroUid = players.find(uid => uid !== usuario.uid);
-
-  meuTurno = !outroUid;
-
-  // Criar tabuleiros 5x5
-  for(let i=0;i<5;i++){
-    meuTabuleiro[i] = [];
-    inimigoTabuleiro[i] = [];
-    for(let j=0;j<5;j++){
-      meuTabuleiro[i][j] = 0;
-      inimigoTabuleiro[i][j] = 0;
-
-      const cellMeu = document.createElement("div");
-      cellMeu.className="cell";
-      cellMeu.dataset.row=i;
-      cellMeu.dataset.col=j;
-      meuBoardDiv.appendChild(cellMeu);
-
-      const cellIni = document.createElement("div");
-      cellIni.className="cell";
-      cellIni.dataset.row=i;
-      cellIni.dataset.col=j;
-      inimigoBoardDiv.appendChild(cellIni);
-
-      cellIni.onclick = async ()=>{
-        if(!meuTurno) return;
-        if(cellIni.classList.contains("hit") || cellIni.classList.contains("miss")) return;
-
-        somAgua.play(); // padrão água
-        const cellData = {row:i,col:j,uid:usuario.uid};
-        await set(ref(db, `salas/${salaId}/ataques/${i}_${j}`), cellData);
-      };
+// Inicializa tabuleiros
+function criarTabuleiro(grid, matriz, clickable=false, callback=null){
+  grid.innerHTML = "";
+  for(let i=0;i<10;i++){
+    matriz[i] = [];
+    for(let j=0;j<10;j++){
+      const cel = document.createElement("div");
+      cel.className="celula";
+      cel.dataset.linha=i;
+      cel.dataset.coluna=j;
+      matriz[i][j] = {cel, navio:false, tocado:false};
+      if(clickable){
+        cel.addEventListener("click", ()=>callback(i,j));
+      }
+      grid.appendChild(cel);
     }
   }
+}
 
-  // Observa ataques
+// Função auxiliar para embarcar navios aleatórios (simples)
+function colocarNavios(matriz){
+  let navios = [5,4,3,3,2]; // tamanhos dos navios
+  for(const tam of navios){
+    let colocado=false;
+    while(!colocado){
+      let linha = Math.floor(Math.random()*10);
+      let col = Math.floor(Math.random()*10);
+      let horizontal = Math.random()<0.5;
+      if(horizontal && col+tam<=10){
+        if(!matriz[linha].slice(col,col+tam).some(c=>c.navio)){
+          for(let k=0;k<tam;k++) matriz[linha][col+k].navio=true;
+          colocado=true;
+        }
+      } else if(!horizontal && linha+tam<=10){
+        if(!Array.from({length:tam},(_,k)=>matriz[linha+k][col]).some(c=>c.navio)){
+          for(let k=0;k<tam;k++) matriz[linha+k][col].navio=true;
+          colocado=true;
+        }
+      }
+    }
+  }
+}
+
+// Tabuleiros
+criarTabuleiro(meuTabuleiroDiv, meuTabuleiro);
+criarTabuleiro(inimigoTabuleiroDiv, inimigoTabuleiro, true, atacar);
+
+// Coloca navios
+colocarNavios(meuTabuleiro);
+
+// Verifica autenticação
+onAuthStateChanged(auth,user=>{
+  if(!user) window.location.href="login.html";
+  usuario=user;
+  initJogo();
+});
+
+// Inicializa jogo na Firebase
+async function initJogo(){
+  const salaRef = ref(db, `salas/${salaId}`);
+  const snap = await get(salaRef);
+  const dados = snap.val()||{};
+  jogadores = Object.entries(dados.players || {});
+  if(jogadores.length<2) return alert("Esperando outro jogador...");
+
+  const meuUid = usuario.uid;
+  const inimigo = jogadores.find(([uid])=>uid!==meuUid)[0];
+
+  // Marca turno do primeiro jogador
+  await update(salaRef, {vez:jogadores[0][0]});
+  audioTurno.play();
+
+  // Atualiza tabuleiro inimigo quando alguém ataca
   onValue(ref(db, `salas/${salaId}/ataques`), snap=>{
-    const ataques = snap.val() || {};
-    for(const key in ataques){
-      const {row, col, uid} = ataques[key];
-      const meuCell = meuBoardDiv.children[row*5 + col];
-      const inimCell = inimigoBoardDiv.children[row*5 + col];
-
-      if(uid === usuario.uid){
-        // Seu ataque
-        const acerto = Math.random()<0.5; 
-        if(acerto){inimCell.classList.add("hit"); somBomba.play(); somNavio.play();}
-        else{inimCell.classList.add("miss"); somAgua.play();}
-        meuTurno = false;
-        statusDiv.textContent="Vez do outro jogador...";
-        somTurno.play();
-      } else {
-        // Ataque do outro
-        const acerto = Math.random()<0.5;
-        if(acerto){meuCell.classList.add("hit"); somBomba.play(); somNavio.play();}
-        else{meuCell.classList.add("miss"); somAgua.play();}
-        meuTurno = true;
-        statusDiv.textContent="Sua vez!";
-        somTurno.play();
+    const ataques = snap.val()||{};
+    for(const [uid,pos] of Object.entries(ataques)){
+      const [i,j] = pos;
+      const alvo = uid===meuUid? meuTabuleiro[i][j] : inimigoTabuleiro[i][j];
+      if(!alvo.tocado){
+        alvo.tocado=true;
+        if(alvo.navio){
+          alvo.cel.classList.add("tocado");
+          audioBomba.play();
+        } else{
+          alvo.cel.classList.add("agua");
+          audioAgua.play();
+        }
       }
     }
   });
 
-  // Observa se alguém saiu
+  // Observa turno
+  onValue(ref(db, `salas/${salaId}/vez`), snap=>{
+    vez = snap.val();
+  });
+
+  // Observa saída de algum jogador
   onValue(ref(db, `salas/${salaId}/players`), snap=>{
-    const playersNow = Object.entries(snap.val() || {});
-    if(playersNow.length < 2){
-      if(playersNow.length===0 || !playersNow.find(p=>p[0]===usuario.uid)){
-        alert("Alguém abandonou o jogo! Voltando para salas.");
-        window.location.href="salas.html";
-      } else {
-        statusDiv.textContent="Aguardando o outro jogador...";
-      }
+    const ps = Object.entries(snap.val()||{});
+    if(ps.length<2){
+      alert("Um jogador saiu. Voltando para salas...");
+      remove(ref(db, `salas/${salaId}/ataques`));
+      update(ref(db, `salas/${salaId}`), {iniciada:false});
+      window.location.href="salas.html";
     }
   });
 }
 
-// Botão sair
-document.getElementById("sairBtn").onclick = async ()=>{
+// Função de ataque
+async function atacar(i,j){
+  if(vez!==usuario.uid) return alert("Não é sua vez!");
+  const salaRef = ref(db, `salas/${salaId}/ataques/${usuario.uid}`);
+  await set(salaRef,[i,j]);
+
+  // Muda turno
+  const proximoUid = jogadores.find(([uid])=>uid!==usuario.uid)[0];
+  await update(ref(db, `salas/${salaId}`), {vez:proximoUid});
+  audioTurno.play();
+}
+
+// Sair da partida
+sairBtn.onclick = async ()=>{
   if(confirm("Deseja sair da partida?")){
     await remove(ref(db, `salas/${salaId}/players/${usuario.uid}`));
+    await remove(ref(db, `salas/${salaId}/ataques/${usuario.uid}`));
     window.location.href="salas.html";
   }
 };
 </script>
+
 </body>
 </html>
