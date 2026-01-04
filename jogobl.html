@@ -2,75 +2,49 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Batalha Naval - Partida</title>
+<title>Batalha Naval - Jogo</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-body {
+body{
   background:#020202;
   color:#fff;
   font-family:Arial, sans-serif;
   margin:0;
-  padding:10px;
+  padding:20px;
   display:flex;
   flex-direction:column;
   align-items:center;
 }
-.topo {
-  width:100%;
-  display:flex;
-  justify-content:space-between;
-  margin-bottom:10px;
-  font-size:14px;
-}
-.turno {
-  font-weight:bold;
-  color:#0af;
-  margin-bottom:10px;
-}
-.tabuleiro {
+h2{text-align:center;}
+#tabuleiro{
   display:grid;
-  grid-template-columns:repeat(10, 1fr);
-  gap:4px;
-  max-width:95vw;
+  grid-template-columns: repeat(10, 40px);
+  grid-template-rows: repeat(10, 40px);
+  gap:3px;
+  margin-top:20px;
 }
-.casa {
-  aspect-ratio:1/1;
+.casa{
+  width:40px;
+  height:40px;
   background:#0af;
-  border-radius:5px;
   display:flex;
   justify-content:center;
   align-items:center;
-  font-size:1.4rem;
+  font-size:24px;
   cursor:pointer;
+  user-select:none;
   transition: transform 0.2s;
 }
-.casa:hover { transform: scale(1.1); }
-.casa.revelada {
-  background:#111;
-  cursor:default;
-}
-#popupPontuacao {
+.casa.revelada{transform:rotateY(180deg);}
+#info{margin-top:15px;}
+#sairPartida{
   position:fixed;
-  top:50%;
-  left:50%;
-  transform:translate(-50%,-50%);
-  font-size:2rem;
-  background:rgba(0,0,0,0.7);
-  padding:20px;
-  border-radius:10px;
-  display:none;
-  z-index:10;
-  text-align:center;
-}
-#botaoSair {
-  position:fixed;
-  bottom:20px;
+  top:20px;
   right:20px;
-  padding:12px 20px;
+  padding:10px 15px;
   background:#f33;
-  color:#fff;
   border:none;
-  border-radius:8px;
+  border-radius:5px;
   font-weight:bold;
   cursor:pointer;
 }
@@ -78,27 +52,21 @@ body {
 </head>
 <body>
 
-<div class="topo">
-  <div id="p1">Player 1</div>
-  <div class="turno" id="turno">Carregando...</div>
-  <div id="p2">Player 2</div>
-</div>
+<h2>Tabuleiro - Sala <span id="salaId"></span></h2>
+<div id="tabuleiro"></div>
+<div id="info"></div>
+<button id="sairPartida">Sair da partida</button>
 
-<div class="tabuleiro" id="tabuleiro"></div>
-
-<div id="popupPontuacao"></div>
-<button id="botaoSair">Sair da Partida</button>
-
-<audio id="somAgua" src="agua.mp3"></audio>
-<audio id="somBomba" src="bomba.mp3"></audio>
-<audio id="somNavio" src="navio.mp3"></audio>
-<audio id="somTurno" src="turno.mp3"></audio>
-<audio id="somVitoria" src="vitoria.mp3"></audio>
+<audio id="agua" src="agua.mp3"></audio>
+<audio id="bomba" src="bomba.mp3"></audio>
+<audio id="navio" src="navio.mp3"></audio>
+<audio id="turno" src="turno.mp3"></audio>
+<audio id="vitoria" src="vitoria.mp3"></audio>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getDatabase, ref, get, set, update, onValue, remove } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getDatabase, ref, get, set, onValue, update, remove } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBxq1jjSig-yW0kmtR1d_WBYCcc7Ysjz00",
@@ -111,156 +79,161 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 
+const urlParams = new URLSearchParams(window.location.search);
+const salaId = urlParams.get('sala');
+document.getElementById("salaId").textContent = salaId;
+
 const tabuleiroDiv = document.getElementById("tabuleiro");
-const turnoEl = document.getElementById("turno");
-const popupPontuacao = document.getElementById("popupPontuacao");
-const p1El = document.getElementById("p1");
-const p2El = document.getElementById("p2");
-const botaoSair = document.getElementById("botaoSair");
+const infoDiv = document.getElementById("info");
+const sairBtn = document.getElementById("sairPartida");
 
-const somAgua = document.getElementById("somAgua");
-const somBomba = document.getElementById("somBomba");
-const somNavio = document.getElementById("somNavio");
-const somTurno = document.getElementById("somTurno");
-const somVitoria = document.getElementById("somVitoria");
+let usuario, turnoAtual = null, tabuleiro = [], pontos = 0;
 
-const params = new URLSearchParams(window.location.search);
-const salaId = params.get("sala");
-if(!salaId){ alert("Sala inválida"); window.location.href="salas.html"; }
-
-let usuario, tabuleiro=[], minhaVez=false, pontos=0;
-
-let somAtual=null;
+// Sons
+const audio = {
+  agua: document.getElementById("agua"),
+  bomba: document.getElementById("bomba"),
+  navio: document.getElementById("navio"),
+  turno: document.getElementById("turno"),
+  vitoria: document.getElementById("vitoria")
+};
 
 onAuthStateChanged(auth, user=>{
   if(!user) return window.location.href="login.html";
   usuario = user;
-  iniciarSala();
+  iniciarJogo();
 });
 
-async function iniciarSala(){
+async function iniciarJogo(){
   const salaRef = ref(db, `salas/${salaId}`);
 
-  const snap = await get(salaRef);
-  const sala = snap.val();
-
-  if(!sala.tabuleiro){
-    await set(ref(db, `salas/${salaId}/tabuleiro`), gerarTabuleiro());
+  // Cria tabuleiro inicial se não existir
+  const salaSnap = await get(salaRef);
+  if(!salaSnap.val().tabuleiro){
+    const novoTabuleiro = [];
+    for(let r=0;r<10;r++){
+      const linha=[];
+      // 3 navios por linha
+      let naviosLinha = [];
+      while(naviosLinha.length<3){
+        let pos = Math.floor(Math.random()*10);
+        if(!naviosLinha.includes(pos)) naviosLinha.push(pos);
+      }
+      for(let c=0;c<10;c++){
+        linha.push(naviosLinha.includes(c)?'🛳️':'🌊');
+      }
+      novoTabuleiro.push(linha);
+    }
+    await update(salaRef,{tabuleiro:novoTabuleiro, vez:usuario.uid, pontos:{}, finalizada:false});
   }
 
-  // Inicializa pontos
-  if(!sala.pontos) await set(ref(db, `salas/${salaId}/pontos/${usuario.uid}`), 0);
+  // Cria visual do tabuleiro
+  criarVisual();
 
+  // Atualiza tabuleiro em tempo real
   onValue(salaRef, snap=>{
     const dados = snap.val();
     if(!dados) return;
-
-    const players = Object.entries(dados.players || {});
-    p1El.textContent = "Player 1: " + (players[0]?.[1]?.nome || "...");
-    p2El.textContent = "Player 2: " + (players[1]?.[1]?.nome || "...");
-
-    minhaVez = dados.turno === usuario.uid;
-    turnoEl.textContent = minhaVez ? "🔥 Sua vez" : "⏳ Vez do adversário";
-
     tabuleiro = dados.tabuleiro;
-    pontos = dados.pontos?.[usuario.uid] || 0;
+    turnoAtual = dados.vez;
+    const finalizada = dados.finalizada;
+    const pontosGlobais = dados.pontos || {};
 
-    renderizarTabuleiro();
+    // Atualiza casas
+    for(let r=0;r<10;r++){
+      for(let c=0;c<10;c++){
+        const cellDiv = document.getElementById(`c-${r}-${c}`);
+        const valor = tabuleiro[r][c];
+        if(cellDiv.textContent !== valor && valor!=='🌊'){
+          cellDiv.textContent = valor==='🛳️'?'💣':valor;
+          cellDiv.classList.add("revelada");
+          if(valor==='🛳️') audio.navio.play();
+          if(valor==='🌊') audio.agua.play();
+        }
+      }
+    }
 
-    // Checa vitória
-    const navios = tabuleiro.flat().filter(c=>c.tipo==="navio");
-    const revelados = navios.filter(c=>c.revelado);
-    if(revelados.length === navios.length && navios.length>0){
-      somVitoria.play();
-      const jogadoresPontos = dados.pontos || {};
-      const vencedor = Object.entries(jogadoresPontos).sort((a,b)=>b[1]-a[1])[0];
-      const mensagem = vencedor[0]===usuario.uid ? `🏆 Vitória!\n${pontos} pts` : `☠️ Derrota\n${pontos} pts`;
-      alert(mensagem);
+    infoDiv.textContent = (turnoAtual===usuario.uid?'Sua vez!':'Vez do adversário') + 
+      ` | Seus pontos: ${pontosGlobais[usuario.uid]||0}`;
 
-      // Atualiza rank
-      update(ref(db, `usuarios/${usuario.uid}`), { pontos: pontos, vitorias: vencedor[0]===usuario.uid ? 1 : 0 });
+    if(finalizada){
+      let vencedor = Object.entries(pontosGlobais).sort((a,b)=>b[1]-a[1])[0];
+      if(vencedor[0]===usuario.uid){
+        infoDiv.innerHTML = `Vitória 🏆<br>${vencedor[1]} pts`;
+        audio.vitoria.play();
+      } else {
+        infoDiv.innerHTML = `Derrota ☠️<br>${vencedor[1]} pts`;
+      }
     }
   });
 }
 
-function gerarTabuleiro(){
-  const grid = [];
-  for(let i=0;i<10;i++){
-    const linha=[];
-    let navioCols = [];
-    while(navioCols.length<3){
-      const col = Math.floor(Math.random()*10);
-      if(!navioCols.includes(col)) navioCols.push(col);
-    }
-    for(let j=0;j<10;j++){
-      linha.push({tipo: navioCols.includes(j)?"navio":"bomba", revelado:false});
-    }
-    grid.push(linha);
-  }
-  return grid;
-}
-
-function renderizarTabuleiro(){
-  tabuleiroDiv.innerHTML="";
-  tabuleiro.forEach((linha,i)=>{
-    linha.forEach((casa,j)=>{
-      const div=document.createElement("div");
-      div.className="casa";
-      if(casa.revelado){
-        div.classList.add("revelada");
-        div.textContent = casa.tipo==="navio"?"🛳️":"💣";
-      }else div.textContent="🌊";
-
-      if(!minhaVez || casa.revelado) div.classList.add("bloqueada");
-      div.onclick = ()=>clicarCasa(i,j);
+// Cria visual do tabuleiro
+function criarVisual(){
+  tabuleiroDiv.innerHTML='';
+  for(let r=0;r<10;r++){
+    for(let c=0;c<10;c++){
+      const div = document.createElement("div");
+      div.id = `c-${r}-${c}`;
+      div.className = "casa";
+      div.textContent='🌊';
+      div.onclick = ()=>clicar(r,c);
       tabuleiroDiv.appendChild(div);
-    });
-  });
-}
-
-async function clicarCasa(i,j){
-  if(!minhaVez) return;
-  const casa = tabuleiro[i][j];
-  if(casa.revelado) return;
-
-  casa.revelado = true;
-  await set(ref(db, `salas/${salaId}/tabuleiro/${i}/${j}`), casa);
-
-  if(casa.tipo==="navio"){
-    pontos+=3;
-    await set(ref(db, `salas/${salaId}/pontos/${usuario.uid}`), pontos);
-    mostrarPopup("+3");
-    tocarSom(somNavio);
-  }else{
-    tocarSom(somBomba);
+    }
   }
-
-  // Troca turno
-  const playersSnap = await get(ref(db, `salas/${salaId}/players`));
-  const players = Object.keys(playersSnap.val()||{});
-  const proximo = players.find(uid=>uid!==usuario.uid);
-  await set(ref(db, `salas/${salaId}/turno`), proximo);
 }
 
-function mostrarPopup(texto){
-  popupPontuacao.textContent = texto;
-  popupPontuacao.style.display = "block";
-  setTimeout(()=>popupPontuacao.style.display="none",600);
-}
+// Clicar em uma casa
+async function clicar(r,c){
+  const salaRef = ref(db, `salas/${salaId}`);
+  const salaSnap = await get(salaRef);
+  const dados = salaSnap.val();
+  if(!dados || dados.finalizada) return;
 
-function tocarSom(som){
-  if(somAtual){ somAtual.pause(); somAtual.currentTime=0; }
-  somAtual=som;
-  som.play();
-}
+  if(turnoAtual !== usuario.uid) return;
+  const tab = dados.tabuleiro;
+  if(tab[r][c]==='💣' || tab[r][c]==='🌊') return;
 
-// Botão sair da partida
-botaoSair.onclick = async ()=>{
-  if(confirm("Deseja realmente sair da partida?")){
-    await remove(ref(db, `salas/${salaId}/players/${usuario.uid}`));
-    await remove(ref(db, `salas/${salaId}/ready/${usuario.uid}`));
-    window.location.href = "salas.html";
+  let valorOriginal = tab[r][c];
+  tab[r][c] = valorOriginal==='🛳️'?'💣':'🌊';
+
+  // Atualiza pontos
+  const pts = dados.pontos || {};
+  pts[usuario.uid] = (pts[usuario.uid]||0) + (valorOriginal==='🛳️'?3:0);
+
+  // Troca de turno
+  const outrosUids = Object.keys(dados.players || {}).filter(uid=>uid!==usuario.uid);
+  const proximo = outrosUids[0] || usuario.uid;
+
+  await update(salaRef,{tabuleiro:tab, vez:proximo, pontos:pts});
+
+  // Checa final de jogo
+  const todasReveladas = tab.flat().every(v=>v==='💣'||v==='🌊');
+  if(todasReveladas){
+    await update(salaRef,{finalizada:true});
+    // Atualiza rank
+    for(const uid in pts){
+      const userRef = ref(db, `usuarios/${uid}`);
+      const userSnap = await get(userRef);
+      const userDados = userSnap.val() || {};
+      await update(userRef,{pontos:(userDados.pontos||0)+pts[uid], vitorias:(userDados.vitorias||0)+((pts[uid]>=Math.max(...Object.values(pts)))?1:0)});
+    }
   }
+}
+
+// Sair da partida
+sairBtn.onclick = async ()=>{
+  const salaRef = ref(db, `salas/${salaId}`);
+  const salaSnap = await get(salaRef);
+  const dados = salaSnap.val();
+  if(!dados) return;
+  const outrosUids = Object.keys(dados.players || {}).filter(uid=>uid!==usuario.uid);
+  if(outrosUids.length>0){
+    if(!confirm("Você deseja sair da partida? O outro jogador será notificado.")) return;
+  }
+  await remove(ref(db, `salas/${salaId}/players/${usuario.uid}`));
+  await remove(ref(db, `salas/${salaId}/ready/${usuario.uid}`));
+  window.location.href = "salas.html";
 };
 </script>
 </body>
