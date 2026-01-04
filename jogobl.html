@@ -2,13 +2,13 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Batalha Naval - Jogo</title>
+<title>Batalha Naval - Sala</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
 body{
   background:#020202;
   color:#fff;
-  font-family:Arial, sans-serif;
+  font-family:Arial,sans-serif;
   margin:0;
   padding:20px;
   display:flex;
@@ -18,33 +18,38 @@ body{
 h2{text-align:center;}
 #tabuleiro{
   display:grid;
-  grid-template-columns: repeat(10, 40px);
-  grid-template-rows: repeat(10, 40px);
-  gap:3px;
+  grid-template-columns: repeat(10, 35px);
+  grid-template-rows: repeat(10, 35px);
+  gap:2px;
   margin-top:20px;
 }
 .casa{
-  width:40px;
-  height:40px;
+  width:35px;
+  height:35px;
   background:#0af;
   display:flex;
-  justify-content:center;
   align-items:center;
-  font-size:24px;
+  justify-content:center;
   cursor:pointer;
+  font-size:20px;
+  border-radius:4px;
   user-select:none;
-  transition: transform 0.2s;
 }
-.casa.revelada{transform:rotateY(180deg);}
-#info{margin-top:15px;}
-#sairPartida{
+.casa.virada{
+  background:#111;
+  cursor:default;
+}
+#info{
+  margin-top:15px;
+}
+#sairBtn{
   position:fixed;
   top:20px;
   right:20px;
   padding:10px 15px;
   background:#f33;
   border:none;
-  border-radius:5px;
+  border-radius:6px;
   font-weight:bold;
   cursor:pointer;
 }
@@ -52,21 +57,22 @@ h2{text-align:center;}
 </head>
 <body>
 
-<h2>Tabuleiro - Sala <span id="salaId"></span></h2>
+<h2>Batalha Naval</h2>
+<div id="info">Aguardando jogador...</div>
 <div id="tabuleiro"></div>
-<div id="info"></div>
-<button id="sairPartida">Sair da partida</button>
-
-<audio id="agua" src="agua.mp3"></audio>
-<audio id="bomba" src="bomba.mp3"></audio>
-<audio id="navio" src="navio.mp3"></audio>
-<audio id="turno" src="turno.mp3"></audio>
-<audio id="vitoria" src="vitoria.mp3"></audio>
+<button id="sairBtn">Sair da Partida</button>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getDatabase, ref, get, set, onValue, update, remove } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getDatabase, ref, onValue, set, update, get, remove } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+// Sons
+const somAgua = new Audio("agua.mp3");
+const somBomba = new Audio("bomba.mp3");
+const somNavio = new Audio("navio.mp3");
+const somTurno = new Audio("turno.mp3");
+const somVitoria = new Audio("vitoria.mp3");
 
 const firebaseConfig = {
   apiKey: "AIzaSyBxq1jjSig-yW0kmtR1d_WBYCcc7Ysjz00",
@@ -79,162 +85,173 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 
-const urlParams = new URLSearchParams(window.location.search);
-const salaId = urlParams.get('sala');
-document.getElementById("salaId").textContent = salaId;
-
 const tabuleiroDiv = document.getElementById("tabuleiro");
 const infoDiv = document.getElementById("info");
-const sairBtn = document.getElementById("sairPartida");
+const sairBtn = document.getElementById("sairBtn");
 
-let usuario, turnoAtual = null, tabuleiro = [], pontos = 0;
+let usuario, nomeUsuario, salaId, salaRef, tabuleiro = [], vez = null, pontos = 0;
 
-// Sons
-const audio = {
-  agua: document.getElementById("agua"),
-  bomba: document.getElementById("bomba"),
-  navio: document.getElementById("navio"),
-  turno: document.getElementById("turno"),
-  vitoria: document.getElementById("vitoria")
-};
+function gerarTabuleiro(){
+  // Limpa
+  tabuleiroDiv.innerHTML="";
+  tabuleiro = [];
 
-onAuthStateChanged(auth, user=>{
-  if(!user) return window.location.href="login.html";
-  usuario = user;
-  iniciarJogo();
-});
-
-async function iniciarJogo(){
-  const salaRef = ref(db, `salas/${salaId}`);
-
-  // Cria tabuleiro inicial se não existir
-  const salaSnap = await get(salaRef);
-  if(!salaSnap.val().tabuleiro){
-    const novoTabuleiro = [];
-    for(let r=0;r<10;r++){
-      const linha=[];
-      // 3 navios por linha
-      let naviosLinha = [];
-      while(naviosLinha.length<3){
-        let pos = Math.floor(Math.random()*10);
-        if(!naviosLinha.includes(pos)) naviosLinha.push(pos);
-      }
-      for(let c=0;c<10;c++){
-        linha.push(naviosLinha.includes(c)?'🛳️':'🌊');
-      }
-      novoTabuleiro.push(linha);
+  for(let i=0;i<10;i++){
+    const linha=[];
+    for(let j=0;j<10;j++){
+      const casa = document.createElement("div");
+      casa.className="casa";
+      casa.dataset.linha=i;
+      casa.dataset.coluna=j;
+      casa.textContent="🌊";
+      tabuleiroDiv.appendChild(casa);
+      linha.push({navios:[], clicado:false, el:casa});
     }
-    await update(salaRef,{tabuleiro:novoTabuleiro, vez:usuario.uid, pontos:{}, finalizada:false});
+    tabuleiro.push(linha);
   }
 
-  // Cria visual do tabuleiro
-  criarVisual();
+  // Coloca 3 navios por linha
+  for(let i=0;i<10;i++){
+    let naviosCol=[];
+    while(naviosCol.length<3){
+      let col=Math.floor(Math.random()*10);
+      if(!naviosCol.includes(col)){
+        naviosCol.push(col);
+        tabuleiro[i][col].navios.push("🛳️");
+      }
+    }
+  }
+}
 
-  // Atualiza tabuleiro em tempo real
-  onValue(salaRef, snap=>{
-    const dados = snap.val();
-    if(!dados) return;
-    tabuleiro = dados.tabuleiro;
-    turnoAtual = dados.vez;
-    const finalizada = dados.finalizada;
-    const pontosGlobais = dados.pontos || {};
-
-    // Atualiza casas
-    for(let r=0;r<10;r++){
-      for(let c=0;c<10;c++){
-        const cellDiv = document.getElementById(`c-${r}-${c}`);
-        const valor = tabuleiro[r][c];
-        if(cellDiv.textContent !== valor && valor!=='🌊'){
-          cellDiv.textContent = valor==='🛳️'?'💣':valor;
-          cellDiv.classList.add("revelada");
-          if(valor==='🛳️') audio.navio.play();
-          if(valor==='🌊') audio.agua.play();
+function atualizarTabuleiro(dados){
+  for(let i=0;i<10;i++){
+    for(let j=0;j<10;j++){
+      const c = tabuleiro[i][j];
+      const estado = dados.tabuleiro?.[i]?.[j];
+      if(estado?.clicado && !c.clicado){
+        c.clicado=true;
+        c.el.classList.add("virada");
+        if(estado.navios?.length>0){
+          c.el.textContent="🛳️";
+          somNavio.play();
+        } else {
+          c.el.textContent="💣";
+          somBomba.play();
         }
       }
     }
+  }
+}
 
-    infoDiv.textContent = (turnoAtual===usuario.uid?'Sua vez!':'Vez do adversário') + 
-      ` | Seus pontos: ${pontosGlobais[usuario.uid]||0}`;
+function calcularVencedor(dados){
+  const players = Object.entries(dados.players || {});
+  if(players.length<2) return null;
+  const p1 = players[0][1].pontos||0;
+  const p2 = players[1][1].pontos||0;
+  if(p1===p2) return "Empate";
+  return p1>p2 ? players[0][1].nome : players[1][1].nome;
+}
 
-    if(finalizada){
-      let vencedor = Object.entries(pontosGlobais).sort((a,b)=>b[1]-a[1])[0];
-      if(vencedor[0]===usuario.uid){
-        infoDiv.innerHTML = `Vitória 🏆<br>${vencedor[1]} pts`;
-        audio.vitoria.play();
-      } else {
-        infoDiv.innerHTML = `Derrota ☠️<br>${vencedor[1]} pts`;
-      }
-    }
+function atualizarInfo(dados){
+  const players = Object.values(dados.players||{});
+  if(players.length<2){
+    infoDiv.textContent="Aguardando outro jogador...";
+    return;
+  }
+  infoDiv.textContent=`Vez de: ${dados.vezNome || ""} | Pontos: ${pontos}`;
+}
+
+function enviarClique(linha,coluna){
+  if(vez!==usuario.uid) return;
+  const c = tabuleiro[linha][coluna];
+  if(c.clicado) return;
+
+  set(ref(db, `salas/${salaId}/tabuleiro/${linha}/${coluna}`), {
+    navios: c.navios,
+    clicado:true
+  });
+
+  // Atualiza pontos
+  let ganho = c.navios.length*3;
+  pontos+=ganho;
+  update(ref(db, `salas/${salaId}/players/${usuario.uid}`), {pontos});
+
+  // Troca vez
+  get(ref(db, `salas/${salaId}/players`)).then(snap=>{
+    const uids = Object.keys(snap.val()||{});
+    const proximo = uids.find(u=>u!==usuario.uid);
+    update(ref(db, `salas/${salaId}`), {vez:proximo, vezNome:snap.val()[proximo].nome});
+    somTurno.play();
   });
 }
 
-// Cria visual do tabuleiro
-function criarVisual(){
-  tabuleiroDiv.innerHTML='';
-  for(let r=0;r<10;r++){
-    for(let c=0;c<10;c++){
-      const div = document.createElement("div");
-      div.id = `c-${r}-${c}`;
-      div.className = "casa";
-      div.textContent='🌊';
-      div.onclick = ()=>clicar(r,c);
-      tabuleiroDiv.appendChild(div);
+onAuthStateChanged(auth, async user=>{
+  if(!user) return window.location.href="login.html";
+  usuario = user;
+  const nomeSnap = await get(ref(db, `usuarios/${usuario.uid}/nome`));
+  nomeUsuario = nomeSnap.val() || "Jogador";
+
+  // Pega sala do query
+  const params = new URLSearchParams(window.location.search);
+  salaId = params.get("sala");
+  salaRef = ref(db, `salas/${salaId}`);
+  
+  // Inicializa sala se não tiver tabuleiro
+  const snap = await get(salaRef);
+  if(!snap.val().tabuleiro) gerarTabuleiro();
+  else atualizarTabuleiro(snap.val());
+
+  // Coloca jogador na sala se não estiver
+  if(!snap.val().players?.[usuario.uid]){
+    update(salaRef, {["players/"+usuario.uid]:{nome:nomeUsuario,pontos:0}});
+  }
+
+  onValue(salaRef, snap=>{
+    const dados = snap.val();
+    atualizarTabuleiro(dados);
+    atualizarInfo(dados);
+    vez = dados.vez || Object.keys(dados.players||{})[0];
+
+    // Verifica fim
+    const todas = tabuleiro.flat().every(c=>c.clicado);
+    if(todas){
+      const vencedor = calcularVencedor(dados);
+      if(vencedor){
+        alert(vencedor==="Empate"?"Empate!":"Vitória de "+vencedor);
+        somVitoria.play();
+
+        // Atualiza rank
+        Object.entries(dados.players||{}).forEach(([uid,p])=>{
+          get(ref(db, `usuarios/${uid}`)).then(snap=>{
+            const u = snap.val();
+            update(ref(db, `usuarios/${uid}`), {pontos:(u.pontos||0)+p.pontos, vitorias:(u.vitorias||0)+(p.nome===vencedor?1:0)});
+          });
+        });
+
+        // Limpa sala
+        update(salaRef,{iniciada:false, tabuleiro:null, players:{}, ready:{}, vez:null, vezNome:null});
+        window.location.href="salas.html";
+      }
     }
-  }
-}
+  });
 
-// Clicar em uma casa
-async function clicar(r,c){
-  const salaRef = ref(db, `salas/${salaId}`);
-  const salaSnap = await get(salaRef);
-  const dados = salaSnap.val();
-  if(!dados || dados.finalizada) return;
+  // Clique nas casas
+  tabuleiroDiv.addEventListener("click", e=>{
+    if(!e.target.classList.contains("casa")) return;
+    const l=parseInt(e.target.dataset.linha);
+    const c=parseInt(e.target.dataset.coluna);
+    enviarClique(l,c);
+  });
 
-  if(turnoAtual !== usuario.uid) return;
-  const tab = dados.tabuleiro;
-  if(tab[r][c]==='💣' || tab[r][c]==='🌊') return;
-
-  let valorOriginal = tab[r][c];
-  tab[r][c] = valorOriginal==='🛳️'?'💣':'🌊';
-
-  // Atualiza pontos
-  const pts = dados.pontos || {};
-  pts[usuario.uid] = (pts[usuario.uid]||0) + (valorOriginal==='🛳️'?3:0);
-
-  // Troca de turno
-  const outrosUids = Object.keys(dados.players || {}).filter(uid=>uid!==usuario.uid);
-  const proximo = outrosUids[0] || usuario.uid;
-
-  await update(salaRef,{tabuleiro:tab, vez:proximo, pontos:pts});
-
-  // Checa final de jogo
-  const todasReveladas = tab.flat().every(v=>v==='💣'||v==='🌊');
-  if(todasReveladas){
-    await update(salaRef,{finalizada:true});
-    // Atualiza rank
-    for(const uid in pts){
-      const userRef = ref(db, `usuarios/${uid}`);
-      const userSnap = await get(userRef);
-      const userDados = userSnap.val() || {};
-      await update(userRef,{pontos:(userDados.pontos||0)+pts[uid], vitorias:(userDados.vitorias||0)+((pts[uid]>=Math.max(...Object.values(pts)))?1:0)});
+  sairBtn.onclick = ()=>{
+    if(confirm("Deseja sair da partida?")){
+      remove(ref(db, `salas/${salaId}/players/${usuario.uid}`));
+      remove(ref(db, `salas/${salaId}/ready/${usuario.uid}`));
+      window.location.href="salas.html";
     }
-  }
-}
-
-// Sair da partida
-sairBtn.onclick = async ()=>{
-  const salaRef = ref(db, `salas/${salaId}`);
-  const salaSnap = await get(salaRef);
-  const dados = salaSnap.val();
-  if(!dados) return;
-  const outrosUids = Object.keys(dados.players || {}).filter(uid=>uid!==usuario.uid);
-  if(outrosUids.length>0){
-    if(!confirm("Você deseja sair da partida? O outro jogador será notificado.")) return;
-  }
-  await remove(ref(db, `salas/${salaId}/players/${usuario.uid}`));
-  await remove(ref(db, `salas/${salaId}/ready/${usuario.uid}`));
-  window.location.href = "salas.html";
-};
+  };
+});
 </script>
+
 </body>
 </html>
