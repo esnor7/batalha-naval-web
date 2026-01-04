@@ -134,10 +134,11 @@ async function criarSala(salaId){
 
   salasDiv.appendChild(div);
 
+  // Atualiza os jogadores em tempo real
   onValue(salaRef, snap=>{
     const dados = snap.val();
     const players = Object.entries(dados.players || {});
-    
+
     p1.textContent = "Player 1: " + (players[0]?.[1]?.nome || "...");
     p2.textContent = "Player 2: " + (players[1]?.[1]?.nome || "...");
 
@@ -146,12 +147,13 @@ async function criarSala(salaId){
     btnSair.disabled = !players.find(([uid])=>uid===meuUid);
   });
 
+  // Entrar na sala
   btnEntrar.onclick = async ()=>{
-    // Sai de qualquer outra sala
-    const salasSnap = await get(ref(db,"salas"));
-    const salasDados = salasSnap.val() || {};
-    for(const s in salasDados){
-      if(salasDados[s].players && Object.keys(salasDados[s].players).includes(usuario.uid)){
+    // Verifica se já está em outra sala
+    const todasSalasSnap = await get(ref(db,"salas"));
+    const todasSalas = todasSalasSnap.val() || {};
+    for(const s in todasSalas){
+      if(todasSalas[s].players && Object.keys(todasSalas[s].players).includes(usuario.uid)){
         alert("Você já está em outra sala!");
         return;
       }
@@ -165,11 +167,13 @@ async function criarSala(salaId){
       return;
     }
 
-    await set(ref(db, `salas/${salaId}/players/${usuario.uid}`), {nome:usuario.displayName || usuario.email});
+    // Adiciona jogador com o nome
+    await set(ref(db, `salas/${salaId}/players/${usuario.uid}`), {nome:usuario.displayName || "Jogador"});
 
-    // Confirmação de pronto
-    if(Object.keys(players).length===1){
-      if(confirm("Deseja marcar como pronto para iniciar?")){
+    // Se há outro jogador, pergunta confirmação para iniciar
+    const playersAgora = Object.keys(players).length + 1; // já incluiu você
+    if(playersAgora===2){
+      if(confirm("Deseja marcar como pronto para iniciar a partida?")){
         await set(ref(db, `salas/${salaId}/ready/${usuario.uid}`), true);
 
         const readySnap = await get(ref(db, `salas/${salaId}/ready`));
@@ -181,6 +185,7 @@ async function criarSala(salaId){
     }
   };
 
+  // Sair da sala
   btnSair.onclick = async ()=>{
     await remove(ref(db, `salas/${salaId}/players/${usuario.uid}`));
     await remove(ref(db, `salas/${salaId}/ready/${usuario.uid}`));
