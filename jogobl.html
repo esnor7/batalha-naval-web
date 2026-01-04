@@ -125,8 +125,12 @@ function renderTabuleiro(tab){
     for(let j=0;j<10;j++){
       const cel = document.createElement("div");
       cel.className="celula";
-      // mostra água inicialmente, navio permanece oculto até clicado
-      cel.textContent = (tab[i][j]==="🌊" || tab[i][j]==="🛳️") ? "🌊" : tab[i][j];
+
+      // CORREÇÃO AQUI: mostra água, bomba ou navio acertado
+      cel.textContent = (tab[i][j]==="💣") ? "💣"
+                      : (tab[i][j]==="🛳️") ? "🛳️"
+                      : "🌊";
+
       if(meuUid!==vezUid || tab[i][j]==="💣") cel.classList.add("desativada");
       cel.onclick = ()=>clicarCelula(i,j,tab);
       tabuleiroDiv.appendChild(cel);
@@ -144,7 +148,7 @@ async function clicarCelula(i,j,tab){
     tab[i][j]="💣";
     audioBomba.play();
   } else if(valor==="🛳️"){
-    tab[i][j]="🛳️"; // mostra navio corretamente
+    tab[i][j]="🛳️"; // agora mostra navio corretamente
     audioNavio.play();
     const pontosRef = ref(db, `jogos/${salaId}/pontos/${meuUid}`);
     const snap = await get(pontosRef);
