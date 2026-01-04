@@ -19,21 +19,45 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBxq1jjSig-yW0kmtR1d_WBYCcc7Ysjz00",
   authDomain: "batalha-naval-web-5c204.firebaseapp.com",
+  databaseURL: "https://batalha-naval-web-5c204-default-rtdb.firebaseio.com",
   projectId: "batalha-naval-web-5c204"
 };
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+const db = getDatabase(app);
 
-window.login = () => {
-  signInWithEmailAndPassword(auth, email.value, senha.value)
-    .then(() => window.location.href = "rank.html")
-    .catch(err => alert(err.message));
+window.login = async () => {
+  const emailUsuario = email.value.trim();
+  const senhaUsuario = senha.value;
+
+  if(!emailUsuario || !senhaUsuario){
+    return alert("Preencha todos os campos!");
+  }
+
+  try {
+    const cred = await signInWithEmailAndPassword(auth, emailUsuario, senhaUsuario);
+    const uid = cred.user.uid;
+
+    // Busca o nome do usuário no banco
+    const userSnap = await get(ref(db, `usuarios/${uid}/nome`));
+    const nomeUsuario = userSnap.val() || cred.user.email;
+
+    // Salva localmente para usar na sala
+    localStorage.setItem("nomeUsuario", nomeUsuario);
+    localStorage.setItem("uidUsuario", uid);
+
+    window.location.href = "rank.html";
+  } catch(err){
+    alert(err.message);
+  }
 };
 </script>
+
 </body>
 </html>
