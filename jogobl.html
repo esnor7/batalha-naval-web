@@ -51,6 +51,9 @@ const audioBomba = new Audio('bomba.mp3');
 const audioNavio = new Audio('navio.mp3');
 const audioTurno = new Audio('turno.mp3');
 const audioVitoria = new Audio('vitoria.mp3');
+const audioFundo = new Audio('fundobtvl.mp3');
+audioFundo.loop = true;
+audioFundo.volume = 0.1; // bem baixinha
 
 const infoDiv = document.getElementById("info");
 const tabuleiroDiv = document.getElementById("tabuleiro");
@@ -60,6 +63,7 @@ onAuthStateChanged(auth, user => {
   if(!user) return window.location.href="login.html";
   usuario = user;
   meuUid = user.uid;
+  audioFundo.play();
   iniciarJogo();
 });
 
@@ -125,12 +129,8 @@ function renderTabuleiro(tab){
     for(let j=0;j<10;j++){
       const cel = document.createElement("div");
       cel.className="celula";
-
-      // CORREÇÃO AQUI: mostra água, bomba ou navio acertado
-      cel.textContent = (tab[i][j]==="💣") ? "💣"
-                      : (tab[i][j]==="🛳️") ? "🛳️"
-                      : "🌊";
-
+      // Oculta navio inicialmente, mostra água
+      cel.textContent = (tab[i][j]==="💣" || tab[i][j]==="☠️") ? tab[i][j] : "🌊";
       if(meuUid!==vezUid || tab[i][j]==="💣") cel.classList.add("desativada");
       cel.onclick = ()=>clicarCelula(i,j,tab);
       tabuleiroDiv.appendChild(cel);
@@ -148,7 +148,7 @@ async function clicarCelula(i,j,tab){
     tab[i][j]="💣";
     audioBomba.play();
   } else if(valor==="🛳️"){
-    tab[i][j]="🛳️"; // agora mostra navio corretamente
+    tab[i][j]="🛳️";
     audioNavio.play();
     const pontosRef = ref(db, `jogos/${salaId}/pontos/${meuUid}`);
     const snap = await get(pontosRef);
@@ -216,7 +216,6 @@ function atualizarInfo(){
   infoDiv.textContent = `${player1Nome} vs ${player2Nome} | Vez de ${vezNome}`;
 }
 
-// Sair da partida
 sairBtn.onclick = async ()=>{
   await remove(ref(db, `salas/${salaId}/players/${meuUid}`));
   await set(ref(db, `salas/${salaId}/iniciada`), false);
